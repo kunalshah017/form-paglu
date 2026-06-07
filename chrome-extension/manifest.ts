@@ -9,7 +9,7 @@ const manifest = {
   name: '__MSG_extensionName__',
   version: packageJson.version,
   description: '__MSG_extensionDescription__',
-  permissions: ['storage', 'sidePanel'],
+  permissions: ['storage', 'sidePanel', 'activeTab', 'scripting'],
   background: {
     service_worker: 'background.js',
     type: 'module',

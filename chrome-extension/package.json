@@ -22,6 +22,7 @@
     "@extension/env": "workspace:*",
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
+    "openai": "^6.42.0",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
