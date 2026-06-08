@@ -18,9 +18,8 @@ const Header: FC<HeaderProps> = ({ onSettingsClick, showBack, onBackClick }) => 
         <span className="font-doodle text-sm">back</span>
       </button>
     ) : (
-      <div className="flex items-center gap-2">
-        <img src={chrome.runtime.getURL('logo.png')} alt="Form Paglu" className="h-8 w-8 rounded" />
-        <span className="font-doodle text-secondary text-base font-bold">form paglu</span>
+      <div className="flex items-center">
+        <img src={chrome.runtime.getURL('logo.png')} alt="Form Paglu" className="h-8" />
       </div>
     )}
     <button
