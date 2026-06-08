@@ -1,4 +1,4 @@
-import Dexie from 'dexie';
+import { Dexie } from 'dexie';
 import type { EntityTable } from 'dexie';
 
 interface Fact {

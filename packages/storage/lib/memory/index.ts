@@ -1,3 +1,4 @@
-export { db, type Fact, type Source } from './db';
-export { upsertFacts, getAllFacts, getFactsByCategory, deleteFact, clearAllFacts, getFactsAsText } from './facts';
-export { addSource, getAllSources } from './sources';
+export { db } from './db.js';
+export type { Fact, Source } from './db.js';
+export { upsertFacts, getAllFacts, getFactsByCategory, deleteFact, clearAllFacts, getFactsAsText } from './facts.js';
+export { addSource, getAllSources } from './sources.js';

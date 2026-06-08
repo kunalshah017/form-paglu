@@ -1,3 +1,3 @@
 export type * from './types.js';
 export * from './impl/index.js';
-export * from './memory/index';
+export * from './memory/index.js';

@@ -1,5 +1,5 @@
-import { db } from './db';
-import type { Fact } from './db';
+import { db } from './db.js';
+import type { Fact } from './db.js';
 
 const upsertFacts = async (facts: Omit<Fact, 'id' | 'updatedAt'>[]): Promise<void> => {
   const now = Date.now();

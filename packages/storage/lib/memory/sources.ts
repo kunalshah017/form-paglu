@@ -1,5 +1,5 @@
-import { db } from './db';
-import type { Source } from './db';
+import { db } from './db.js';
+import type { Source } from './db.js';
 
 const addSource = async (source: Omit<Source, 'id'>): Promise<string> => {
   const id = crypto.randomUUID();
