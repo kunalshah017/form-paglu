@@ -1,3 +1,4 @@
+import { Save, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 
@@ -114,8 +115,9 @@ const SettingsView: FC<SettingsViewProps> = ({ apiKey, provider, baseUrl, model,
 
       <button
         onClick={handleSave}
-        className="font-doodle border-primary text-secondary mt-2 w-full rounded-xl border-2 border-dashed bg-white py-3 text-base transition-all hover:scale-[1.02] hover:bg-blue-50 active:scale-[0.98]">
-        {saved ? '✓ saved!' : 'save settings'}
+        className="font-doodle border-primary text-secondary mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-white py-3 text-base transition-all hover:scale-[1.02] hover:bg-blue-50 active:scale-[0.98]">
+        {saved ? <Check size={18} /> : <Save size={18} />}
+        <span>{saved ? 'saved!' : 'save settings'}</span>
       </button>
     </div>
   );
