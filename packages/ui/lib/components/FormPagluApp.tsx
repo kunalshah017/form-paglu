@@ -62,9 +62,9 @@ const getFactsAsText = async (): Promise<string> => {
 const FormPagluApp: FC = () => {
   const [view, setView] = useState<'home' | 'settings' | 'memory'>('home');
   const [apiKey, setApiKey] = useState('');
-  const [provider, setProvider] = useState('nvidia');
-  const [baseUrl, setBaseUrl] = useState('https://integrate.api.nvidia.com/v1');
-  const [model, setModel] = useState('nvidia/llama-3.3-nemotron-super-49b-v1');
+  const [provider, setProvider] = useState('openrouter');
+  const [baseUrl, setBaseUrl] = useState('https://openrouter.ai/api/v1');
+  const [model, setModel] = useState('google/gemini-2.0-flash-001');
   const [factCount, setFactCount] = useState(0);
 
   const refreshFactCount = useCallback(() => {
@@ -86,9 +86,9 @@ const FormPagluApp: FC = () => {
       const settings = result['fp-settings'];
       if (settings) {
         setApiKey(settings.apiKey ? atob(settings.apiKey) : '');
-        setProvider(settings.apiProvider || 'nvidia');
-        setBaseUrl(settings.apiBaseUrl || 'https://integrate.api.nvidia.com/v1');
-        setModel(settings.model || 'nvidia/llama-3.3-nemotron-super-49b-v1');
+        setProvider(settings.apiProvider || 'openrouter');
+        setBaseUrl(settings.apiBaseUrl || 'https://openrouter.ai/api/v1');
+        setModel(settings.model || 'google/gemini-2.0-flash-001');
       }
     });
     refreshFactCount();

@@ -46,7 +46,34 @@ const createClient = (apiKey: string, baseUrl: string): OpenAI =>
     dangerouslyAllowBrowser: true,
   });
 
-// Process a single chunk using tool calling
+// Collect a streaming response into a complete message (handles providers that force streaming)
+const collectStreamResponse = async (
+  stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+): Promise<{ content: string; toolCalls: { name: string; arguments: string }[] }> => {
+  let content = '';
+  const toolCallParts: Record<number, { name: string; arguments: string }> = {};
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta;
+    if (!delta) continue;
+
+    if (delta.content) content += delta.content;
+
+    if (delta.tool_calls) {
+      for (const tc of delta.tool_calls) {
+        if (!toolCallParts[tc.index]) {
+          toolCallParts[tc.index] = { name: '', arguments: '' };
+        }
+        if (tc.function?.name) toolCallParts[tc.index].name += tc.function.name;
+        if (tc.function?.arguments) toolCallParts[tc.index].arguments += tc.function.arguments;
+      }
+    }
+  }
+
+  return { content: content.trim(), toolCalls: Object.values(toolCallParts) };
+};
+
+// Process a single chunk - tries non-streaming first, falls back to streaming
 const processChunk = async (
   client: OpenAI,
   model: string,
@@ -54,38 +81,55 @@ const processChunk = async (
   chunkIndex: number,
   totalChunks: number,
 ): Promise<ExtractedFact[]> => {
-  const response = await client.chat.completions.create({
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: `Chunk ${chunkIndex + 1}/${totalChunks}. Extract all user data from this content:\n\n${chunk}`,
+    },
+  ];
+
+  // Use streaming to handle all providers (some force streaming regardless)
+  const stream = await client.chat.completions.create({
     model,
-    stream: false,
-    messages: [
-      { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `Chunk ${chunkIndex + 1}/${totalChunks}. Extract all user data from this content:\n\n${chunk}`,
-      },
-    ],
+    stream: true,
+    messages,
     tools: [STORE_FACTS_TOOL],
     tool_choice: 'auto',
     temperature: 0.1,
   });
 
-  const message = response.choices[0]?.message;
-  if (!message?.tool_calls?.length) return [];
+  const { content, toolCalls } = await collectStreamResponse(
+    stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  );
 
-  const allFacts: ExtractedFact[] = [];
-  for (const toolCall of message.tool_calls) {
-    if (toolCall.function.name === 'store_facts') {
-      try {
-        const args = JSON.parse(toolCall.function.arguments);
-        if (Array.isArray(args.facts)) {
-          allFacts.push(...args.facts);
+  // If tool calls were made, parse them
+  if (toolCalls.length > 0) {
+    const allFacts: ExtractedFact[] = [];
+    for (const tc of toolCalls) {
+      if (tc.name === 'store_facts') {
+        try {
+          const args = JSON.parse(tc.arguments);
+          if (Array.isArray(args.facts)) allFacts.push(...args.facts);
+        } catch {
+          console.error('Failed to parse tool call:', tc.arguments);
         }
-      } catch {
-        console.error('Failed to parse tool call arguments:', toolCall.function.arguments);
       }
     }
+    return allFacts;
   }
-  return allFacts;
+
+  // Fallback: try to parse JSON from content (for models that don't support tools)
+  if (content) {
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]) as ExtractedFact[];
+    } catch {
+      console.error('Failed to parse content as facts:', content);
+    }
+  }
+
+  return [];
 };
 
 // Main extraction: chunks content and processes each with tool calling
@@ -118,9 +162,9 @@ const generateFillInstructions = async (
 ): Promise<FillInstruction[]> => {
   const client = createClient(apiKey, baseUrl);
 
-  const response = await client.chat.completions.create({
+  const stream = await client.chat.completions.create({
     model,
-    stream: false,
+    stream: true,
     messages: [
       { role: 'system', content: FILL_SYSTEM_PROMPT },
       {
@@ -131,14 +175,16 @@ const generateFillInstructions = async (
     temperature: 0.1,
   });
 
-  const text = response.choices[0]?.message?.content?.trim() ?? '[]';
+  const { content } = await collectStreamResponse(
+    stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  );
 
   try {
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
     return JSON.parse(jsonMatch[0]) as FillInstruction[];
   } catch {
-    console.error('Failed to parse AI fill response:', text);
+    console.error('Failed to parse AI fill response:', content);
     return [];
   }
 };

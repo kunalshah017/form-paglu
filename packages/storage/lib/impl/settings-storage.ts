@@ -10,9 +10,9 @@ interface SettingsState {
 
 const DEFAULT_SETTINGS: SettingsState = {
   apiKey: '',
-  apiProvider: 'nvidia',
-  apiBaseUrl: 'https://integrate.api.nvidia.com/v1',
-  model: 'nvidia/llama-3.3-nemotron-super-49b-v1',
+  apiProvider: 'openrouter',
+  apiBaseUrl: 'https://openrouter.ai/api/v1',
+  model: 'google/gemini-2.0-flash-001',
   uiMode: 'sidepanel',
 };
 

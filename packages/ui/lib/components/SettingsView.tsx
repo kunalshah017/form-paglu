@@ -12,16 +12,16 @@ interface SettingsViewProps {
 
 const PROVIDERS = [
   {
-    id: 'nvidia',
-    label: 'NVIDIA (build.nvidia.ai)',
-    baseUrl: 'https://integrate.api.nvidia.com/v1',
-    defaultModel: 'nvidia/llama-3.3-nemotron-super-49b-v1',
-  },
-  {
     id: 'openrouter',
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'nvidia/llama-3.3-nemotron-super-49b-v1',
+    defaultModel: 'google/gemini-2.0-flash-001',
+  },
+  {
+    id: 'nvidia',
+    label: 'NVIDIA (build.nvidia.ai)',
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModel: 'nvidia/llama-3.1-nemotron-70b-instruct',
   },
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '', defaultModel: '' },
 ];
