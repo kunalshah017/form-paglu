@@ -1,5 +1,6 @@
 import { Header } from './Header';
 import { HomeView } from './HomeView';
+import { MemoryView } from './MemoryView';
 import { SettingsView } from './SettingsView';
 import { useState, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
@@ -59,7 +60,7 @@ const getFactsAsText = async (): Promise<string> => {
 };
 
 const FormPagluApp: FC = () => {
-  const [view, setView] = useState<'home' | 'settings'>('home');
+  const [view, setView] = useState<'home' | 'settings' | 'memory'>('home');
   const [apiKey, setApiKey] = useState('');
   const [provider, setProvider] = useState('nvidia');
   const [baseUrl, setBaseUrl] = useState('https://integrate.api.nvidia.com/v1');
@@ -195,18 +196,41 @@ const FormPagluApp: FC = () => {
     }
   };
 
+  const handleDeleteFact = async (id: string) => {
+    const database = await openMemoryDB();
+    const tx = database.transaction('facts', 'readwrite');
+    tx.objectStore('facts').delete(id);
+    database.close();
+    refreshFactCount();
+  };
+
+  const handleClearAllFacts = async () => {
+    const database = await openMemoryDB();
+    const tx = database.transaction('facts', 'readwrite');
+    tx.objectStore('facts').clear();
+    database.close();
+    refreshFactCount();
+  };
+
   return (
     <div className="flex h-screen flex-col bg-white font-sans">
       <Header
         onSettingsClick={() => setView(view === 'settings' ? 'home' : 'settings')}
-        showBack={view === 'settings'}
+        showBack={view !== 'home'}
         onBackClick={() => setView('home')}
       />
-      {view === 'home' ? (
-        <HomeView onScan={handleScan} onFill={handleFill} factCount={factCount} />
-      ) : (
+      {view === 'home' && (
+        <HomeView
+          onScan={handleScan}
+          onFill={handleFill}
+          onMemoryClick={() => setView('memory')}
+          factCount={factCount}
+        />
+      )}
+      {view === 'settings' && (
         <SettingsView apiKey={apiKey} provider={provider} baseUrl={baseUrl} model={model} onSave={handleSaveSettings} />
       )}
+      {view === 'memory' && <MemoryView onDelete={handleDeleteFact} onClearAll={handleClearAllFacts} />}
     </div>
   );
 };

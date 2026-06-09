@@ -1,14 +1,15 @@
-import { PenLine, ScanSearch, Loader2 } from 'lucide-react';
+import { PenLine, ScanSearch, Loader2, BrainCircuit } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 
 interface HomeViewProps {
   onScan: () => Promise<void>;
   onFill: () => Promise<void>;
+  onMemoryClick: () => void;
   factCount: number;
 }
 
-const HomeView: FC<HomeViewProps> = ({ onScan, onFill, factCount }) => {
+const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onMemoryClick, factCount }) => {
   const [loading, setLoading] = useState<'scan' | 'fill' | null>(null);
   const [status, setStatus] = useState<string>('');
 
@@ -74,9 +75,12 @@ const HomeView: FC<HomeViewProps> = ({ onScan, onFill, factCount }) => {
 
       {status && <p className="font-doodle text-center text-sm text-gray-600">{status}</p>}
 
-      <p className="font-doodle text-xs text-gray-400">
-        {factCount > 0 ? `${factCount} facts in memory` : 'no data scanned yet'}
-      </p>
+      <button
+        onClick={onMemoryClick}
+        className="font-doodle hover:text-primary flex items-center gap-2 text-xs text-gray-400 transition-colors">
+        <BrainCircuit size={14} />
+        <span>{factCount > 0 ? `${factCount} facts in memory` : 'no data scanned yet'}</span>
+      </button>
     </div>
   );
 };
