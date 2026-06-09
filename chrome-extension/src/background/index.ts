@@ -25,7 +25,10 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
         baseUrl: string;
         model: string;
       };
-      const facts = await extractData(content, apiKey, baseUrl, model);
+      const facts = await extractData(content, apiKey, baseUrl, model, (current, total, factsFound) => {
+        // Broadcast progress to all extension pages
+        chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { current, total, factsFound } }).catch(() => {});
+      });
       return { facts, source: url };
     }
 

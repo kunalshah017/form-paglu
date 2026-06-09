@@ -1,5 +1,5 @@
 import { PenLine, ScanSearch, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 
 interface HomeViewProps {
@@ -11,6 +11,18 @@ interface HomeViewProps {
 const HomeView: FC<HomeViewProps> = ({ onScan, onFill, factCount }) => {
   const [loading, setLoading] = useState<'scan' | 'fill' | null>(null);
   const [status, setStatus] = useState<string>('');
+
+  // Listen for scan progress from background
+  useEffect(() => {
+    const listener = (message: { type: string; payload?: { current: number; total: number; factsFound: number } }) => {
+      if (message.type === 'SCAN_PROGRESS' && message.payload) {
+        const { current, total, factsFound } = message.payload;
+        setStatus(`Scanning chunk ${current}/${total}... (${factsFound} facts found)`);
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, []);
 
   const handleScan = async () => {
     setLoading('scan');
