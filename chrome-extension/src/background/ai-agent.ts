@@ -14,6 +14,13 @@ interface FillInstruction {
   method: 'set' | 'select' | 'check';
 }
 
+// Truncate content to avoid token limits and timeouts
+const MAX_CONTENT_LENGTH = 15000;
+const truncateContent = (content: string): string => {
+  if (content.length <= MAX_CONTENT_LENGTH) return content;
+  return content.slice(0, MAX_CONTENT_LENGTH) + '\n\n[...content truncated]';
+};
+
 const createClient = (apiKey: string, baseUrl: string): OpenAI =>
   new OpenAI({
     apiKey,
@@ -28,12 +35,14 @@ const extractData = async (
   model: string,
 ): Promise<ExtractedFact[]> => {
   const client = createClient(apiKey, baseUrl);
+  const trimmed = truncateContent(content);
 
   const response = await client.chat.completions.create({
     model,
+    stream: false,
     messages: [
       { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
-      { role: 'user', content: `Extract all user data from this content:\n\n${content}` },
+      { role: 'user', content: `Extract all user data from this content:\n\n${trimmed}` },
     ],
     temperature: 0.1,
   });
@@ -61,6 +70,7 @@ const generateFillInstructions = async (
 
   const response = await client.chat.completions.create({
     model,
+    stream: false,
     messages: [
       { role: 'system', content: FILL_SYSTEM_PROMPT },
       {
