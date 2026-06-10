@@ -2,7 +2,7 @@ import { createStorage, StorageEnum } from '../base/index.js';
 
 interface SettingsState {
   apiKey: string;
-  apiProvider: 'openrouter' | 'nvidia' | 'custom';
+  apiProvider: 'google' | 'nvidia' | 'openrouter' | 'custom';
   apiBaseUrl: string;
   model: string;
   uiMode: 'sidepanel' | 'popup';
@@ -10,9 +10,9 @@ interface SettingsState {
 
 const DEFAULT_SETTINGS: SettingsState = {
   apiKey: '',
-  apiProvider: 'openrouter',
-  apiBaseUrl: 'https://openrouter.ai/api/v1',
-  model: 'google/gemini-2.0-flash-001',
+  apiProvider: 'google',
+  apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  model: 'gemini-2.5-flash-lite',
   uiMode: 'sidepanel',
 };
 

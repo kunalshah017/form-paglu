@@ -12,16 +12,22 @@ interface SettingsViewProps {
 
 const PROVIDERS = [
   {
+    id: 'google',
+    label: 'Google AI Studio (free)',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-2.5-flash-lite',
+  },
+  {
+    id: 'nvidia',
+    label: 'NVIDIA (free)',
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModel: 'nvidia/nemotron-3-super-120b-a12b',
+  },
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'google/gemini-2.0-flash-001',
-  },
-  {
-    id: 'nvidia',
-    label: 'NVIDIA (build.nvidia.ai)',
-    baseUrl: 'https://integrate.api.nvidia.com/v1',
-    defaultModel: 'nvidia/llama-3.1-nemotron-70b-instruct',
   },
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '', defaultModel: '' },
 ];
