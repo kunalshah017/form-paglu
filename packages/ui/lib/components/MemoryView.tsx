@@ -19,7 +19,7 @@ interface MemoryViewProps {
 
 const openMemoryDB = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const req = indexedDB.open('form-paglu-memory', 1);
+    const req = indexedDB.open('form-paglu-memory', 2);
     req.onupgradeneeded = () => {
       const database = req.result;
       if (!database.objectStoreNames.contains('facts')) {

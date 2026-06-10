@@ -25,7 +25,7 @@ const db = new Dexie('form-paglu-memory') as Dexie & {
   sources: EntityTable<Source, 'id'>;
 };
 
-db.version(1).stores({
+db.version(2).stores({
   facts: 'id, category, key, source, updatedAt',
   sources: 'id, type, scannedAt',
 });
