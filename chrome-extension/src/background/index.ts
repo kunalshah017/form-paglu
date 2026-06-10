@@ -47,6 +47,14 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
     case 'GET_PAGE_CONTENT': {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) return { error: 'No active tab' };
+      if (
+        !tab.url ||
+        tab.url.startsWith('chrome://') ||
+        tab.url.startsWith('about:') ||
+        tab.url.startsWith('chrome-extension://')
+      ) {
+        return { error: 'Cannot scan this page (browser internal pages are not accessible)' };
+      }
 
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -58,6 +66,14 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
     case 'GET_FORM_FIELDS': {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) return { error: 'No active tab' };
+      if (
+        !tab.url ||
+        tab.url.startsWith('chrome://') ||
+        tab.url.startsWith('about:') ||
+        tab.url.startsWith('chrome-extension://')
+      ) {
+        return { error: 'Cannot access this page (browser internal pages are not accessible)' };
+      }
 
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },

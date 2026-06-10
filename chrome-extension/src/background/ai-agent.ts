@@ -54,7 +54,9 @@ const collectStreamResponse = async (
   const toolCallParts: Record<number, { name: string; arguments: string }> = {};
 
   for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta;
+    // Some providers send chunks with empty/missing choices (heartbeats, reasoning tokens)
+    if (!chunk.choices || !chunk.choices[0]) continue;
+    const delta = chunk.choices[0].delta;
     if (!delta) continue;
 
     if (delta.content) content += delta.content;

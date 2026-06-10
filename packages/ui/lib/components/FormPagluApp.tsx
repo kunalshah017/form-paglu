@@ -126,45 +126,50 @@ const FormPagluApp: FC = () => {
     const { facts, source } = extractResp;
     if (facts.length > 0) {
       const database = await openMemoryDB();
-      const tx = database.transaction('facts', 'readwrite');
-      const store = tx.objectStore('facts');
       const now = Date.now();
 
+      // Store facts one by one with separate transactions (IDB transactions auto-close on await)
       for (const fact of facts) {
-        const index = store.index('key');
-        await new Promise<void>((resolve, reject) => {
-          const req = index.openCursor(IDBKeyRange.only(fact.key));
-          let found = false;
-          req.onsuccess = () => {
-            const cursor = req.result;
-            if (cursor && cursor.value.category === fact.category) {
-              cursor.update({
-                ...cursor.value,
-                value: fact.value,
-                confidence: fact.confidence,
-                source,
-                updatedAt: now,
-              });
-              found = true;
-              resolve();
-            } else if (cursor) {
-              cursor.continue();
-            } else if (!found) {
-              store.add({
-                id: crypto.randomUUID(),
-                category: fact.category,
-                key: fact.key,
-                value: fact.value,
-                confidence: fact.confidence,
-                source,
-                extractedAt: now,
-                updatedAt: now,
-              });
-              resolve();
-            }
-          };
-          req.onerror = () => reject(req.error);
-        });
+        try {
+          const tx = database.transaction('facts', 'readwrite');
+          const store = tx.objectStore('facts');
+          const index = store.index('key');
+          const req = index.getAll(fact.key);
+
+          await new Promise<void>((resolve, reject) => {
+            req.onsuccess = () => {
+              const existing = req.result.find((f: { category: string }) => f.category === fact.category);
+              const writeTx = database.transaction('facts', 'readwrite');
+              const writeStore = writeTx.objectStore('facts');
+
+              if (existing) {
+                writeStore.put({
+                  ...existing,
+                  value: fact.value,
+                  confidence: fact.confidence,
+                  source,
+                  updatedAt: now,
+                });
+              } else {
+                writeStore.add({
+                  id: crypto.randomUUID(),
+                  category: fact.category,
+                  key: fact.key,
+                  value: fact.value,
+                  confidence: fact.confidence,
+                  source,
+                  extractedAt: now,
+                  updatedAt: now,
+                });
+              }
+              writeTx.oncomplete = () => resolve();
+              writeTx.onerror = () => reject(writeTx.error);
+            };
+            req.onerror = () => reject(req.error);
+          });
+        } catch (err) {
+          console.error('Failed to store fact:', fact.key, err);
+        }
       }
       database.close();
     }
