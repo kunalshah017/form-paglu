@@ -6,6 +6,7 @@ interface ExtractedFact {
   key: string;
   value: string;
   confidence: number;
+  action?: 'store' | 'update' | 'delete';
 }
 
 interface FillInstruction {
@@ -14,8 +15,35 @@ interface FillInstruction {
   method: 'set' | 'select' | 'check';
 }
 
-// Split content into chunks at natural boundaries (paragraphs/sentences)
-const CHUNK_SIZE = 4000;
+// Strip boilerplate/navigation content, keep only meaningful text
+const cleanContent = (raw: string): string => {
+  const lines = raw.split('\n');
+  const cleaned: string[] = [];
+  const skipPatterns =
+    /^(skip to|cookie|accept|decline|sign in|sign up|log in|©|privacy|terms|all rights|menu|navigation|footer|header|sidebar|advertisement|sponsored|loading|please wait)/i;
+  const shortLineThreshold = 3; // skip very short lines (usually UI elements)
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.length <= shortLineThreshold) continue;
+    if (skipPatterns.test(trimmed)) continue;
+    // Skip lines that are just repeated separators or bullets
+    if (/^[•\-=_|·]{3,}$/.test(trimmed)) continue;
+    cleaned.push(trimmed);
+  }
+
+  // Deduplicate consecutive identical lines
+  const deduped: string[] = [];
+  for (const line of cleaned) {
+    if (deduped[deduped.length - 1] !== line) deduped.push(line);
+  }
+
+  return deduped.join('\n');
+};
+
+// Split content into chunks at natural boundaries
+const CHUNK_SIZE = 6000;
 const splitIntoChunks = (content: string): string[] => {
   const chunks: string[] = [];
   let remaining = content;
@@ -26,7 +54,6 @@ const splitIntoChunks = (content: string): string[] => {
       break;
     }
 
-    // Find a natural break point (double newline, single newline, or period+space)
     let breakPoint = remaining.lastIndexOf('\n\n', CHUNK_SIZE);
     if (breakPoint < CHUNK_SIZE * 0.5) breakPoint = remaining.lastIndexOf('\n', CHUNK_SIZE);
     if (breakPoint < CHUNK_SIZE * 0.5) breakPoint = remaining.lastIndexOf('. ', CHUNK_SIZE);
@@ -46,7 +73,7 @@ const createClient = (apiKey: string, baseUrl: string): OpenAI =>
     dangerouslyAllowBrowser: true,
   });
 
-// Collect a streaming response into a complete message (handles providers that force streaming)
+// Collect a streaming response into a complete message
 const collectStreamResponse = async (
   stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
 ): Promise<{ content: string; toolCalls: { name: string; arguments: string }[] }> => {
@@ -54,7 +81,6 @@ const collectStreamResponse = async (
   const toolCallParts: Record<number, { name: string; arguments: string }> = {};
 
   for await (const chunk of stream) {
-    // Some providers send chunks with empty/missing choices (heartbeats, reasoning tokens)
     if (!chunk.choices || !chunk.choices[0]) continue;
     const delta = chunk.choices[0].delta;
     if (!delta) continue;
@@ -75,23 +101,24 @@ const collectStreamResponse = async (
   return { content: content.trim(), toolCalls: Object.values(toolCallParts) };
 };
 
-// Process a single chunk - tries non-streaming first, falls back to streaming
+// Process a single chunk with existing memory context
 const processChunk = async (
   client: OpenAI,
   model: string,
   chunk: string,
   chunkIndex: number,
   totalChunks: number,
+  existingMemory: string,
 ): Promise<ExtractedFact[]> => {
+  const userContent = existingMemory
+    ? `EXISTING MEMORY (update/delete if needed):\n${existingMemory}\n\n---\nChunk ${chunkIndex + 1}/${totalChunks}. Extract user data:\n\n${chunk}`
+    : `Chunk ${chunkIndex + 1}/${totalChunks}. Extract all user data:\n\n${chunk}`;
+
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: `Chunk ${chunkIndex + 1}/${totalChunks}. Extract all user data from this content:\n\n${chunk}`,
-    },
+    { role: 'user', content: userContent },
   ];
 
-  // Use streaming to handle all providers (some force streaming regardless)
   const stream = await client.chat.completions.create({
     model,
     stream: true,
@@ -105,7 +132,6 @@ const processChunk = async (
     stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
   );
 
-  // If tool calls were made, parse them
   if (toolCalls.length > 0) {
     const allFacts: ExtractedFact[] = [];
     for (const tc of toolCalls) {
@@ -121,7 +147,7 @@ const processChunk = async (
     return allFacts;
   }
 
-  // Fallback: try to parse JSON from content (for models that don't support tools)
+  // Fallback: parse JSON from content
   if (content) {
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
@@ -134,22 +160,38 @@ const processChunk = async (
   return [];
 };
 
-// Main extraction: chunks content and processes each with tool calling
+// Main extraction: cleans content, chunks it, processes in parallel batches
+const CONCURRENCY = 3;
 const extractData = async (
   content: string,
   apiKey: string,
   baseUrl: string,
   model: string,
+  existingMemory: string,
   onProgress?: (current: number, total: number, factsFound: number) => void,
 ): Promise<ExtractedFact[]> => {
   const client = createClient(apiKey, baseUrl);
-  const chunks = splitIntoChunks(content);
+  const cleaned = cleanContent(content);
+  const chunks = splitIntoChunks(cleaned);
   const allFacts: ExtractedFact[] = [];
+  let completed = 0;
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunkFacts = await processChunk(client, model, chunks[i], i, chunks.length);
-    allFacts.push(...chunkFacts);
-    onProgress?.(i + 1, chunks.length, allFacts.length);
+  // Process chunks in parallel batches
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    const batch = chunks.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((chunk, idx) => processChunk(client, model, chunk, i + idx, chunks.length, existingMemory)),
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allFacts.push(...result.value);
+      } else {
+        console.error('Chunk processing failed:', result.reason);
+      }
+      completed++;
+      onProgress?.(completed, chunks.length, allFacts.length);
+    }
   }
 
   return allFacts;
@@ -191,5 +233,5 @@ const generateFillInstructions = async (
   }
 };
 
-export { extractData, generateFillInstructions, splitIntoChunks };
+export { extractData, generateFillInstructions, splitIntoChunks, cleanContent };
 export type { ExtractedFact, FillInstruction };

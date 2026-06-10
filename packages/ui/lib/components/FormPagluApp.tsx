@@ -117,9 +117,12 @@ const FormPagluApp: FC = () => {
     const contentResp = await chrome.runtime.sendMessage({ type: 'GET_PAGE_CONTENT' });
     if (contentResp.error) throw new Error(contentResp.error);
 
+    // Get existing memory to pass to agent for smart updates
+    const existingMemory = await getFactsAsText();
+
     const extractResp = await chrome.runtime.sendMessage({
       type: 'SCAN_PAGE',
-      payload: { content: contentResp.content, url: contentResp.url, apiKey, baseUrl, model },
+      payload: { content: contentResp.content, url: contentResp.url, apiKey, baseUrl, model, existingMemory },
     });
     if (extractResp.error) throw new Error(extractResp.error);
 
@@ -128,10 +131,33 @@ const FormPagluApp: FC = () => {
       const database = await openMemoryDB();
       const now = Date.now();
 
-      // Store facts one by one with separate transactions (IDB transactions auto-close on await)
       for (const fact of facts) {
         try {
-          const tx = database.transaction('facts', 'readwrite');
+          // Handle delete action
+          if (fact.action === 'delete') {
+            const tx = database.transaction('facts', 'readwrite');
+            const store = tx.objectStore('facts');
+            const index = store.index('key');
+            const req = index.getAll(fact.key);
+            await new Promise<void>((resolve, reject) => {
+              req.onsuccess = () => {
+                const match = req.result.find((f: { category: string }) => f.category === fact.category);
+                if (match) {
+                  const delTx = database.transaction('facts', 'readwrite');
+                  delTx.objectStore('facts').delete(match.id);
+                  delTx.oncomplete = () => resolve();
+                  delTx.onerror = () => reject(delTx.error);
+                } else {
+                  resolve();
+                }
+              };
+              req.onerror = () => reject(req.error);
+            });
+            continue;
+          }
+
+          // Store or update
+          const tx = database.transaction('facts', 'readonly');
           const store = tx.objectStore('facts');
           const index = store.index('key');
           const req = index.getAll(fact.key);
@@ -143,13 +169,7 @@ const FormPagluApp: FC = () => {
               const writeStore = writeTx.objectStore('facts');
 
               if (existing) {
-                writeStore.put({
-                  ...existing,
-                  value: fact.value,
-                  confidence: fact.confidence,
-                  source,
-                  updatedAt: now,
-                });
+                writeStore.put({ ...existing, value: fact.value, confidence: fact.confidence, source, updatedAt: now });
               } else {
                 writeStore.add({
                   id: crypto.randomUUID(),
@@ -168,7 +188,7 @@ const FormPagluApp: FC = () => {
             req.onerror = () => reject(req.error);
           });
         } catch (err) {
-          console.error('Failed to store fact:', fact.key, err);
+          console.error('Failed to process fact:', fact.key, fact.action, err);
         }
       }
       database.close();

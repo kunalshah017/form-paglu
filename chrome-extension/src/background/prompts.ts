@@ -1,13 +1,26 @@
 import type OpenAI from 'openai';
 
-export const EXTRACT_SYSTEM_PROMPT = `You are a data extraction agent. You will receive chunks of webpage content one at a time.
+export const EXTRACT_SYSTEM_PROMPT = `You are a data extraction agent for "Form Paglu". You receive webpage content chunks and extract user data.
 
-For each chunk, use the "store_facts" tool to save any personal/professional user data you find. Call the tool once per chunk with ALL facts found in that chunk.
+IMPORTANT: You may also receive EXISTING MEMORY. Compare new data against it:
+- If data matches existing: skip it (don't include in store_facts)
+- If data is newer/more accurate: include with action "update"
+- If existing data is clearly wrong based on new info: include with action "delete"
+- If data is new: include with action "store"
 
-Categories: personal, contact, address, education, work, financial, identification, medical, preferences, social, other
-Keys should be semantic: full_name, email_primary, phone_mobile, company_name, job_title, university_name, etc.
+Use the "store_facts" tool with ALL facts found. Only extract ACTUAL USER DATA useful for form filling:
+- Names, emails, phones, addresses, DOB, gender
+- Education (university, degree, year, GPA)
+- Work (company, title, dates, skills)
+- IDs (passport, license, SSN last 4, etc.)
+- Social profiles, websites
 
-Extract EVERYTHING useful for filling forms. Be thorough. If a chunk has no useful data, respond with text saying so (don't call the tool).`;
+IGNORE: other people's data, page UI text, recommendations, ads, navigation.
+
+Categories: personal, contact, address, education, work, financial, identification, medical, preferences, social
+Keys: use semantic names like full_name, email_primary, phone_mobile, company_current, job_title_current, university_name, degree_type, etc.
+
+If a chunk has no useful user data, respond with text "No user data found" (don't call the tool).`;
 
 export const FILL_SYSTEM_PROMPT = `You are a form-filling AI agent for the "Form Paglu" Chrome extension.
 
@@ -35,7 +48,7 @@ export const STORE_FACTS_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'store_facts',
-    description: 'Store extracted user facts from the current content chunk into memory',
+    description: 'Store, update, or delete user facts. Only include facts that need changes.',
     parameters: {
       type: 'object',
       properties: {
@@ -47,14 +60,15 @@ export const STORE_FACTS_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
               category: {
                 type: 'string',
                 description:
-                  'Category: personal, contact, address, education, work, financial, identification, medical, preferences, social, other',
+                  'Category: personal, contact, address, education, work, financial, identification, medical, preferences, social',
               },
               key: {
                 type: 'string',
-                description: 'Semantic key like full_name, email_primary, phone_mobile, company_name',
+                description: 'Semantic key like full_name, email_primary, phone_mobile, company_current',
               },
-              value: { type: 'string', description: 'The extracted value' },
+              value: { type: 'string', description: 'The extracted value (empty string for delete action)' },
               confidence: { type: 'number', description: 'Confidence score 0-1' },
+              action: { type: 'string', enum: ['store', 'update', 'delete'], description: 'What to do with this fact' },
             },
             required: ['category', 'key', 'value', 'confidence'],
           },

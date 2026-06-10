@@ -18,17 +18,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 const handleMessage = async (message: { type: string; payload?: unknown }) => {
   switch (message.type) {
     case 'SCAN_PAGE': {
-      const { content, url, apiKey, baseUrl, model } = message.payload as {
+      const { content, url, apiKey, baseUrl, model, existingMemory } = message.payload as {
         content: string;
         url: string;
         apiKey: string;
         baseUrl: string;
         model: string;
+        existingMemory: string;
       };
-      const facts = await extractData(content, apiKey, baseUrl, model, (current, total, factsFound) => {
-        // Broadcast progress to all extension pages
-        chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { current, total, factsFound } }).catch(() => {});
-      });
+      const facts = await extractData(
+        content,
+        apiKey,
+        baseUrl,
+        model,
+        existingMemory || '',
+        (current, total, factsFound) => {
+          chrome.runtime
+            .sendMessage({ type: 'SCAN_PROGRESS', payload: { current, total, factsFound } })
+            .catch(() => {});
+        },
+      );
       return { facts, source: url };
     }
 
