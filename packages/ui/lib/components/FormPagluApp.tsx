@@ -66,6 +66,20 @@ const FormPagluApp: FC = () => {
   const [baseUrl, setBaseUrl] = useState('https://generativelanguage.googleapis.com/v1beta/openai');
   const [model, setModel] = useState('gemini-2.5-flash-lite');
   const [factCount, setFactCount] = useState(0);
+  const [loading, setLoading] = useState<'scan' | 'fill' | null>(null);
+  const [status, setStatus] = useState('');
+
+  // Listen for scan progress from background (persists across view changes)
+  useEffect(() => {
+    const listener = (message: { type: string; payload?: { current: number; total: number; factsFound: number } }) => {
+      if (message.type === 'SCAN_PROGRESS' && message.payload) {
+        const { current, total, factsFound } = message.payload;
+        setStatus(`Scanning chunk ${current}/${total}... (${factsFound} facts found)`);
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, []);
 
   const refreshFactCount = useCallback(() => {
     const request = indexedDB.open('form-paglu-memory');
@@ -112,112 +126,141 @@ const FormPagluApp: FC = () => {
   };
 
   const handleScan = async () => {
-    if (!apiKey) throw new Error('Set your API key in settings first');
+    setLoading('scan');
+    setStatus('Reading page content...');
+    try {
+      if (!apiKey) throw new Error('Set your API key in settings first');
 
-    const contentResp = await chrome.runtime.sendMessage({ type: 'GET_PAGE_CONTENT' });
-    if (contentResp.error) throw new Error(contentResp.error);
+      const contentResp = await chrome.runtime.sendMessage({ type: 'GET_PAGE_CONTENT' });
+      if (contentResp.error) throw new Error(contentResp.error);
 
-    // Get existing memory to pass to agent for smart updates
-    const existingMemory = await getFactsAsText();
+      // Get existing memory to pass to agent for smart updates
+      const existingMemory = await getFactsAsText();
 
-    const extractResp = await chrome.runtime.sendMessage({
-      type: 'SCAN_PAGE',
-      payload: { content: contentResp.content, url: contentResp.url, apiKey, baseUrl, model, existingMemory },
-    });
-    if (extractResp.error) throw new Error(extractResp.error);
+      const extractResp = await chrome.runtime.sendMessage({
+        type: 'SCAN_PAGE',
+        payload: { content: contentResp.content, url: contentResp.url, apiKey, baseUrl, model, existingMemory },
+      });
+      if (extractResp.error) throw new Error(extractResp.error);
 
-    const { facts, source } = extractResp;
-    if (facts.length > 0) {
-      const database = await openMemoryDB();
-      const now = Date.now();
+      const { facts, source } = extractResp;
+      if (facts.length > 0) {
+        const database = await openMemoryDB();
+        const now = Date.now();
 
-      for (const fact of facts) {
-        try {
-          // Handle delete action
-          if (fact.action === 'delete') {
-            const tx = database.transaction('facts', 'readwrite');
+        for (const fact of facts) {
+          try {
+            // Handle delete action
+            if (fact.action === 'delete') {
+              const tx = database.transaction('facts', 'readwrite');
+              const store = tx.objectStore('facts');
+              const index = store.index('key');
+              const req = index.getAll(fact.key);
+              await new Promise<void>((resolve, reject) => {
+                req.onsuccess = () => {
+                  const match = req.result.find((f: { category: string }) => f.category === fact.category);
+                  if (match) {
+                    const delTx = database.transaction('facts', 'readwrite');
+                    delTx.objectStore('facts').delete(match.id);
+                    delTx.oncomplete = () => resolve();
+                    delTx.onerror = () => reject(delTx.error);
+                  } else {
+                    resolve();
+                  }
+                };
+                req.onerror = () => reject(req.error);
+              });
+              continue;
+            }
+
+            // Store or update
+            const tx = database.transaction('facts', 'readonly');
             const store = tx.objectStore('facts');
             const index = store.index('key');
             const req = index.getAll(fact.key);
+
             await new Promise<void>((resolve, reject) => {
               req.onsuccess = () => {
-                const match = req.result.find((f: { category: string }) => f.category === fact.category);
-                if (match) {
-                  const delTx = database.transaction('facts', 'readwrite');
-                  delTx.objectStore('facts').delete(match.id);
-                  delTx.oncomplete = () => resolve();
-                  delTx.onerror = () => reject(delTx.error);
+                const existing = req.result.find((f: { category: string }) => f.category === fact.category);
+                const writeTx = database.transaction('facts', 'readwrite');
+                const writeStore = writeTx.objectStore('facts');
+
+                if (existing) {
+                  writeStore.put({
+                    ...existing,
+                    value: fact.value,
+                    confidence: fact.confidence,
+                    source,
+                    updatedAt: now,
+                  });
                 } else {
-                  resolve();
+                  writeStore.add({
+                    id: crypto.randomUUID(),
+                    category: fact.category,
+                    key: fact.key,
+                    value: fact.value,
+                    confidence: fact.confidence,
+                    source,
+                    extractedAt: now,
+                    updatedAt: now,
+                  });
                 }
+                writeTx.oncomplete = () => resolve();
+                writeTx.onerror = () => reject(writeTx.error);
               };
               req.onerror = () => reject(req.error);
             });
-            continue;
+          } catch (err) {
+            console.error('Failed to process fact:', fact.key, fact.action, err);
           }
-
-          // Store or update
-          const tx = database.transaction('facts', 'readonly');
-          const store = tx.objectStore('facts');
-          const index = store.index('key');
-          const req = index.getAll(fact.key);
-
-          await new Promise<void>((resolve, reject) => {
-            req.onsuccess = () => {
-              const existing = req.result.find((f: { category: string }) => f.category === fact.category);
-              const writeTx = database.transaction('facts', 'readwrite');
-              const writeStore = writeTx.objectStore('facts');
-
-              if (existing) {
-                writeStore.put({ ...existing, value: fact.value, confidence: fact.confidence, source, updatedAt: now });
-              } else {
-                writeStore.add({
-                  id: crypto.randomUUID(),
-                  category: fact.category,
-                  key: fact.key,
-                  value: fact.value,
-                  confidence: fact.confidence,
-                  source,
-                  extractedAt: now,
-                  updatedAt: now,
-                });
-              }
-              writeTx.oncomplete = () => resolve();
-              writeTx.onerror = () => reject(writeTx.error);
-            };
-            req.onerror = () => reject(req.error);
-          });
-        } catch (err) {
-          console.error('Failed to process fact:', fact.key, fact.action, err);
         }
+        database.close();
       }
-      database.close();
+      refreshFactCount();
+      setStatus('Scan complete!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setTimeout(() => setStatus(''), 5000);
+    } finally {
+      setLoading(null);
     }
-    refreshFactCount();
   };
 
   const handleFill = async () => {
-    if (!apiKey) throw new Error('Set your API key in settings first');
+    setLoading('fill');
+    setStatus('Reading form fields...');
+    try {
+      if (!apiKey) throw new Error('Set your API key in settings first');
 
-    const userMemory = await getFactsAsText();
-    if (userMemory === 'No user data stored yet.') {
-      throw new Error('No data in memory. Scan a page first!');
-    }
+      const userMemory = await getFactsAsText();
+      if (userMemory === 'No user data stored yet.') {
+        throw new Error('No data in memory. Scan a page first!');
+      }
 
-    const fieldsResp = await chrome.runtime.sendMessage({ type: 'GET_FORM_FIELDS' });
-    if (fieldsResp.error) throw new Error(fieldsResp.error);
+      setStatus('AI is mapping data to form fields...');
+      const fieldsResp = await chrome.runtime.sendMessage({ type: 'GET_FORM_FIELDS' });
+      if (fieldsResp.error) throw new Error(fieldsResp.error);
 
-    const fillResp = await chrome.runtime.sendMessage({
-      type: 'FILL_FORM',
-      payload: { userMemory, formFields: fieldsResp.formFields, apiKey, baseUrl, model },
-    });
-    if (fillResp.error) throw new Error(fillResp.error);
-
-    if (fillResp.instructions.length > 0) {
-      await chrome.runtime.sendMessage({
-        type: 'EXECUTE_FILL',
-        payload: { instructions: fillResp.instructions },
+      const fillResp = await chrome.runtime.sendMessage({
+        type: 'FILL_FORM',
+        payload: { userMemory, formFields: fieldsResp.formFields, apiKey, baseUrl, model },
       });
+      if (fillResp.error) throw new Error(fillResp.error);
+
+      if (fillResp.instructions.length > 0) {
+        await chrome.runtime.sendMessage({
+          type: 'EXECUTE_FILL',
+          payload: { instructions: fillResp.instructions },
+        });
+      }
+      setStatus('Form filled!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setTimeout(() => setStatus(''), 5000);
+    } finally {
+      setLoading(null);
     }
   };
 
@@ -250,6 +293,8 @@ const FormPagluApp: FC = () => {
           onFill={handleFill}
           onMemoryClick={() => setView('memory')}
           factCount={factCount}
+          loading={loading}
+          status={status}
         />
       )}
       {view === 'settings' && (
