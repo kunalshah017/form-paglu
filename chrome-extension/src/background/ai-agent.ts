@@ -161,7 +161,7 @@ const processChunk = async (
 };
 
 // Main extraction: cleans content, chunks it, processes in parallel batches
-const CONCURRENCY = 3;
+const CONCURRENCY = 4;
 const extractData = async (
   content: string,
   apiKey: string,
