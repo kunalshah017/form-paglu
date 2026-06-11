@@ -194,7 +194,34 @@ const extractData = async (
     }
   }
 
-  return allFacts;
+  return postProcessFacts(allFacts);
+};
+
+// Post-process: filter bad data, deduplicate, normalize
+const REDIRECT_DOMAINS = ['lnkd.in', 'bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'shorturl.at'];
+
+const postProcessFacts = (facts: ExtractedFact[]): ExtractedFact[] => {
+  const filtered = facts.filter(fact => {
+    // Remove facts with redirect URLs as values
+    if (fact.value && REDIRECT_DOMAINS.some(domain => fact.value.includes(domain))) {
+      return false;
+    }
+    // Remove empty values (except for delete actions)
+    if (!fact.value && fact.action !== 'delete') return false;
+    return true;
+  });
+
+  // Deduplicate: keep highest confidence for same category+key
+  const deduped = new Map<string, ExtractedFact>();
+  for (const fact of filtered) {
+    const dedupKey = `${fact.category}:${fact.key}`;
+    const existing = deduped.get(dedupKey);
+    if (!existing || fact.confidence > existing.confidence) {
+      deduped.set(dedupKey, fact);
+    }
+  }
+
+  return Array.from(deduped.values());
 };
 
 const generateFillInstructions = async (
