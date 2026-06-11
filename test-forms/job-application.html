@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaTech Labs - Job Application</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Delius+Swash+Caps&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --primary: #49B6E5;
+      --secondary: #263D5B;
+      --success: #16A34A;
+      --warning: #D97706;
+      --danger: #DC2626;
+      --surface: #FFFFFF;
+      --text: #111827;
+      --border: #E5E7EB;
+      --muted: #6B7280;
+      --bg: #F9FAFB;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--secondary);
+      color: white;
+      padding: 24px 0;
+      border-bottom: 4px dashed var(--primary);
+    }
+
+    .header-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .company-name {
+      font-family: 'Delius Swash Caps', cursive;
+      font-size: 32px;
+      margin-bottom: 4px;
+    }
+
+    .job-title {
+      font-size: 20px;
+      font-weight: 300;
+      opacity: 0.9;
+    }
+
+    .job-meta {
+      margin-top: 12px;
+      display: flex;
+      gap: 16px;
+      font-size: 14px;
+      opacity: 0.75;
+    }
+
+    /* Form Container */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    .form-section {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .form-section h2 {
+      font-family: 'Delius Swash Caps', cursive;
+      font-size: 20px;
+      color: var(--secondary);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px dashed var(--border);
+    }
+
+    /* Form Fields */
+    .field-group {
+      margin-bottom: 16px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .field-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--secondary);
+      margin-bottom: 4px;
+    }
+
+    label .required {
+      color: var(--danger);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="date"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s;
+      background: var(--surface);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(73, 182, 229, 0.15);
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Checkbox & Radio */
+    .checkbox-group, .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checkbox-item, .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    input[type="checkbox"], input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    /* Tags Input */
+    .tags-container {
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 44px;
+      cursor: text;
+    }
+
+    .tags-container:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(73, 182, 229, 0.15);
+    }
+
+    .tag {
+      background: rgba(73, 182, 229, 0.1);
+      border: 1px solid var(--primary);
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--secondary);
+    }
+
+    .tag .remove-tag {
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--danger);
+      font-size: 14px;
+    }
+
+    .tags-input {
+      border: none;
+      outline: none;
+      padding: 4px;
+      font-size: 14px;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    /* Range Slider */
+    .range-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+    }
+
+    .range-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--secondary);
+      min-width: 40px;
+    }
+
+    /* File Upload */
+    .file-upload {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .file-upload:hover {
+      border-color: var(--primary);
+    }
+
+    .file-upload-text {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* Work Experience Repeater */
+    .experience-entry {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--bg);
+    }
+
+    .experience-entry .field-row {
+      margin-bottom: 12px;
+    }
+
+    .add-entry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 2px dashed var(--primary);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .add-entry-btn:hover {
+      background: rgba(73, 182, 229, 0.05);
+    }
+
+    /* Submit */
+    .submit-section {
+      text-align: center;
+      padding: 32px 0;
+    }
+
+    .submit-btn {
+      font-family: 'Delius Swash Caps', cursive;
+      font-size: 18px;
+      padding: 14px 48px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(73, 182, 229, 0.3);
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(73, 182, 229, 0.4);
+    }
+
+    .submit-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .field-row, .field-row-3 { grid-template-columns: 1fr; }
+      .job-meta { flex-direction: column; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="company-name">NovaTech Labs</div>
+      <div class="job-title">Senior Full Stack Engineer</div>
+      <div class="job-meta">
+        <span>📍 Bengaluru, India (Hybrid)</span>
+        <span>💼 Full-time</span>
+        <span>💰 ₹25-45 LPA</span>
+        <span>🕐 Posted 3 days ago</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Form -->
+  <div class="container">
+    <form id="application-form" onsubmit="handleSubmit(event)">
+
+      <!-- Personal Information -->
+      <section class="form-section">
+        <h2>Personal Information</h2>
+        
+        <div class="field-row">
+          <div class="field-group">
+            <label for="first-name">First Name <span class="required">*</span></label>
+            <input type="text" id="first-name" name="firstName" placeholder="John" required>
+          </div>
+          <div class="field-group">
+            <label for="last-name">Last Name <span class="required">*</span></label>
+            <input type="text" id="last-name" name="lastName" placeholder="Doe" required>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="email">Email Address <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="john@example.com" required>
+          </div>
+          <div class="field-group">
+            <label for="phone">Phone Number <span class="required">*</span></label>
+            <input type="tel" id="phone" name="phone" placeholder="+91 98765 43210" required>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="dob">Date of Birth</label>
+            <input type="date" id="dob" name="dateOfBirth">
+          </div>
+          <div class="field-group">
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender">
+              <option value="">Select...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="non-binary">Non-binary</option>
+              <option value="prefer-not">Prefer not to say</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="address">Current Address</label>
+          <textarea id="address" name="address" placeholder="Street, City, State, PIN Code" rows="2"></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" placeholder="Mumbai">
+          </div>
+          <div class="field-group">
+            <label for="linkedin">LinkedIn Profile URL</label>
+            <input type="url" id="linkedin" name="linkedin" placeholder="https://linkedin.com/in/username">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="github">GitHub Profile</label>
+            <input type="url" id="github" name="github" placeholder="https://github.com/username">
+          </div>
+          <div class="field-group">
+            <label for="portfolio">Portfolio/Website</label>
+            <input type="url" id="portfolio" name="portfolio" placeholder="https://yoursite.com">
+          </div>
+        </div>
+      </section>
+
+      <!-- Professional Details -->
+      <section class="form-section">
+        <h2>Professional Details</h2>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="experience-years">Total Experience (years) <span class="required">*</span></label>
+            <input type="number" id="experience-years" name="experienceYears" min="0" max="40" placeholder="3" required>
+          </div>
+          <div class="field-group">
+            <label for="current-company">Current Company</label>
+            <input type="text" id="current-company" name="currentCompany" placeholder="Acme Corp">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="current-role">Current Job Title</label>
+            <input type="text" id="current-role" name="currentRole" placeholder="Full Stack Developer">
+          </div>
+          <div class="field-group">
+            <label for="current-ctc">Current CTC (LPA)</label>
+            <input type="number" id="current-ctc" name="currentCTC" min="0" step="0.5" placeholder="18">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="expected-ctc">Expected CTC (LPA) <span class="required">*</span></label>
+            <input type="number" id="expected-ctc" name="expectedCTC" min="0" step="0.5" placeholder="30" required>
+          </div>
+          <div class="field-group">
+            <label for="notice-period">Notice Period <span class="required">*</span></label>
+            <select id="notice-period" name="noticePeriod" required>
+              <option value="">Select...</option>
+              <option value="immediate">Immediately available</option>
+              <option value="15days">15 days</option>
+              <option value="30days">30 days</option>
+              <option value="60days">60 days</option>
+              <option value="90days">90 days</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="preferred-role">Preferred Role/Position <span class="required">*</span></label>
+          <select id="preferred-role" name="preferredRole" required>
+            <option value="">Select role...</option>
+            <option value="frontend">Frontend Engineer</option>
+            <option value="backend">Backend Engineer</option>
+            <option value="fullstack">Full Stack Engineer</option>
+            <option value="devops">DevOps Engineer</option>
+            <option value="mobile">Mobile Developer</option>
+            <option value="ml-engineer">ML Engineer</option>
+            <option value="data-engineer">Data Engineer</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>Work Mode Preference</label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="workMode" value="onsite"> On-site
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="workMode" value="hybrid"> Hybrid
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="workMode" value="remote"> Remote
+            </label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="availability">Earliest Joining Date</label>
+          <input type="date" id="availability" name="availability">
+        </div>
+      </section>
+
+      <!-- Skills -->
+      <section class="form-section">
+        <h2>Skills & Technologies</h2>
+
+        <div class="field-group">
+          <label>Primary Skills <span class="required">*</span></label>
+          <div class="tags-container" id="skills-tags" onclick="document.getElementById('skills-input').focus()">
+            <input type="text" class="tags-input" id="skills-input" placeholder="Type a skill and press Enter..." onkeydown="handleTagInput(event, 'skills-tags', 'skills-hidden')">
+          </div>
+          <input type="hidden" id="skills-hidden" name="skills" value="">
+          <p class="hint">Press Enter after each skill (e.g., React.js, Node.js, Python)</p>
+        </div>
+
+        <div class="field-group">
+          <label for="proficiency">Overall Proficiency Level</label>
+          <div class="range-container">
+            <span style="font-size:12px;">Junior</span>
+            <input type="range" id="proficiency" name="proficiency" min="1" max="5" value="3" oninput="document.getElementById('prof-val').textContent = this.value">
+            <span style="font-size:12px;">Senior</span>
+            <span class="range-value" id="prof-val">3</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>Frameworks & Tools (select all that apply)</label>
+          <div class="checkbox-group" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="react"> React</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="nextjs"> Next.js</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="nodejs"> Node.js</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="python"> Python</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="docker"> Docker</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="kubernetes"> Kubernetes</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="aws"> AWS</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="gcp"> GCP</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="mongodb"> MongoDB</label>
+            <label class="checkbox-item"><input type="checkbox" name="frameworks" value="postgresql"> PostgreSQL</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Education -->
+      <section class="form-section">
+        <h2>Education</h2>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="degree">Highest Degree <span class="required">*</span></label>
+            <select id="degree" name="degree" required>
+              <option value="">Select...</option>
+              <option value="phd">Ph.D.</option>
+              <option value="masters">Master's (M.Tech/M.S./MBA)</option>
+              <option value="bachelors">Bachelor's (B.Tech/B.E./BCA)</option>
+              <option value="diploma">Diploma</option>
+              <option value="highschool">High School</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="field-of-study">Field of Study</label>
+            <input type="text" id="field-of-study" name="fieldOfStudy" placeholder="Computer Science">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="university">University/Institution <span class="required">*</span></label>
+            <input type="text" id="university" name="university" placeholder="IIT Bombay" required>
+          </div>
+          <div class="field-group">
+            <label for="graduation-year">Graduation Year</label>
+            <input type="number" id="graduation-year" name="graduationYear" min="1980" max="2030" placeholder="2022">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="gpa">GPA/Percentage</label>
+          <input type="text" id="gpa" name="gpa" placeholder="8.5/10 or 85%">
+        </div>
+      </section>
+
+      <!-- Work Experience -->
+      <section class="form-section">
+        <h2>Work Experience</h2>
+        
+        <div id="experience-entries">
+          <div class="experience-entry">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="exp-company-1">Company Name</label>
+                <input type="text" id="exp-company-1" name="expCompany1" placeholder="Previous Company">
+              </div>
+              <div class="field-group">
+                <label for="exp-role-1">Job Title</label>
+                <input type="text" id="exp-role-1" name="expRole1" placeholder="Software Engineer">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="exp-start-1">Start Date</label>
+                <input type="date" id="exp-start-1" name="expStart1">
+              </div>
+              <div class="field-group">
+                <label for="exp-end-1">End Date</label>
+                <input type="date" id="exp-end-1" name="expEnd1">
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="exp-desc-1">Key Responsibilities</label>
+              <textarea id="exp-desc-1" name="expDesc1" placeholder="Describe your role and achievements..." rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="add-entry-btn" onclick="addExperience()">+ Add another position</button>
+      </section>
+
+      <!-- Additional Questions -->
+      <section class="form-section">
+        <h2>Additional Questions</h2>
+
+        <div class="field-group">
+          <label for="why-join">Why do you want to join NovaTech Labs? <span class="required">*</span></label>
+          <textarea id="why-join" name="whyJoin" placeholder="Tell us what excites you about this role..." rows="4" required></textarea>
+        </div>
+
+        <div class="field-group">
+          <label for="biggest-achievement">What's your biggest professional achievement?</label>
+          <textarea id="biggest-achievement" name="biggestAchievement" placeholder="Share a project or accomplishment you're proud of..." rows="3"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label>Are you willing to relocate?</label>
+          <div class="radio-group">
+            <label class="radio-item"><input type="radio" name="relocate" value="yes"> Yes</label>
+            <label class="radio-item"><input type="radio" name="relocate" value="no"> No</label>
+            <label class="radio-item"><input type="radio" name="relocate" value="maybe"> Open to discussion</label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="referral">Referral Source</label>
+          <select id="referral" name="referral">
+            <option value="">How did you hear about us?</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="friend">Friend/Colleague</option>
+            <option value="website">Company Website</option>
+            <option value="jobboard">Job Board (Naukri/Indeed)</option>
+            <option value="event">Career Fair/Event</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>I acknowledge that: <span class="required">*</span></label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" name="consent-info" required> All information provided is accurate and complete
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="consent-privacy" required> I agree to the privacy policy and data processing
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="consent-contact"> NovaTech may contact me about future opportunities
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit -->
+      <div class="submit-section">
+        <button type="submit" class="submit-btn">Submit Application ✨</button>
+        <p class="submit-note">We'll review your application and get back within 5 business days.</p>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    // Tags Input Handler
+    function handleTagInput(event, containerId, hiddenId) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const input = event.target;
+        const value = input.value.trim();
+        if (!value) return;
+
+        const container = document.getElementById(containerId);
+        const hidden = document.getElementById(hiddenId);
+
+        // Create tag element
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.innerHTML = `${value} <span class="remove-tag" onclick="removeTag(this, '${hiddenId}')">&times;</span>`;
+        container.insertBefore(tag, input);
+
+        // Update hidden input
+        const existing = hidden.value ? hidden.value.split(',') : [];
+        existing.push(value);
+        hidden.value = existing.join(',');
+
+        input.value = '';
+      }
+    }
+
+    function removeTag(el, hiddenId) {
+      const tag = el.parentElement;
+      const value = tag.textContent.replace('×', '').trim();
+      const hidden = document.getElementById(hiddenId);
+      const values = hidden.value.split(',').filter(v => v.trim() !== value);
+      hidden.value = values.join(',');
+      tag.remove();
+    }
+
+    // Experience Repeater
+    let expCount = 1;
+    function addExperience() {
+      expCount++;
+      const container = document.getElementById('experience-entries');
+      const entry = document.createElement('div');
+      entry.className = 'experience-entry';
+      entry.innerHTML = `
+        <div class="field-row">
+          <div class="field-group">
+            <label for="exp-company-${expCount}">Company Name</label>
+            <input type="text" id="exp-company-${expCount}" name="expCompany${expCount}" placeholder="Company">
+          </div>
+          <div class="field-group">
+            <label for="exp-role-${expCount}">Job Title</label>
+            <input type="text" id="exp-role-${expCount}" name="expRole${expCount}" placeholder="Role">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="exp-start-${expCount}">Start Date</label>
+            <input type="date" id="exp-start-${expCount}" name="expStart${expCount}">
+          </div>
+          <div class="field-group">
+            <label for="exp-end-${expCount}">End Date</label>
+            <input type="date" id="exp-end-${expCount}" name="expEnd${expCount}">
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="exp-desc-${expCount}">Key Responsibilities</label>
+          <textarea id="exp-desc-${expCount}" name="expDesc${expCount}" placeholder="Describe your role..." rows="3"></textarea>
+        </div>
+      `;
+      container.appendChild(entry);
+    }
+
+    // Submit Handler
+    function handleSubmit(event) {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const data = Object.fromEntries(formData.entries());
+      
+      // Collect checkboxes
+      data.frameworks = formData.getAll('frameworks');
+      
+      console.log('Application submitted:', data);
+      alert('Application submitted successfully! 🎉\n\nCheck console for form data.');
+    }
+  </script>
+
+</body>
+</html>
