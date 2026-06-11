@@ -88,21 +88,58 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
         target: { tabId: tab.id },
         func: () => {
           const fields: object[] = [];
-          const inputs = document.querySelectorAll('input, select, textarea');
-          inputs.forEach(el => {
+          const inputs = document.querySelectorAll(
+            'input, select, textarea, [contenteditable="true"], [contenteditable=""]',
+          );
+          inputs.forEach((el, idx) => {
             const input = el as HTMLInputElement;
-            const label = document.querySelector(`label[for="${input.id}"]`)?.textContent?.trim() ?? '';
+            const type = input.type || (el.hasAttribute('contenteditable') ? 'contenteditable' : 'text');
+            // Skip non-fillable types
+            if (['hidden', 'submit', 'button', 'file', 'password', 'image', 'reset'].includes(type)) return;
+            // Skip invisible elements
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
+
+            // Multi-strategy label detection
+            let label = '';
+            if (input.id) label = document.querySelector(`label[for="${input.id}"]`)?.textContent?.trim() ?? '';
+            if (!label) {
+              const parentLabel = el.closest('label');
+              if (parentLabel) label = parentLabel.textContent?.trim() ?? '';
+            }
+            if (!label) {
+              const prev = el.previousElementSibling;
+              if (prev && ['LABEL', 'SPAN', 'P', 'DIV'].includes(prev.tagName)) {
+                label = prev.textContent?.trim()?.slice(0, 100) ?? '';
+              }
+            }
+
+            // Robust selector generation
+            let selector = '';
+            if (input.id) selector = `#${input.id}`;
+            else if (input.name) selector = `[name="${input.name}"]`;
+            else {
+              el.setAttribute('data-fp-idx', String(idx));
+              selector = `[data-fp-idx="${idx}"]`;
+            }
+
             fields.push({
               tag: el.tagName.toLowerCase(),
-              type: input.type || 'text',
+              type,
               name: input.name || '',
               id: input.id || '',
               placeholder: input.placeholder || '',
               label,
               ariaLabel: input.getAttribute('aria-label') || '',
-              selector: input.id ? `#${input.id}` : input.name ? `[name="${input.name}"]` : '',
+              autocomplete: input.getAttribute('autocomplete') || '',
+              selector,
               options:
-                el.tagName === 'SELECT' ? Array.from((el as HTMLSelectElement).options).map(o => o.value) : undefined,
+                el.tagName === 'SELECT'
+                  ? Array.from((el as HTMLSelectElement).options).map(o => ({
+                      value: o.value,
+                      text: o.textContent?.trim(),
+                    }))
+                  : undefined,
             });
           });
           return JSON.stringify(fields);
@@ -121,20 +158,54 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: (fillInstructions: { selector: string; value: string; method: string }[]) => {
-          for (const inst of fillInstructions) {
-            const el = document.querySelector(inst.selector) as HTMLInputElement | HTMLSelectElement | null;
-            if (!el) continue;
-
-            if (inst.method === 'check' && el instanceof HTMLInputElement) {
-              el.checked = inst.value === 'true';
-            } else if (inst.method === 'select' && el instanceof HTMLSelectElement) {
-              el.value = inst.value;
+          // Framework-aware value setter that works with React, Vue, Angular
+          const setInputValue = (el: HTMLInputElement | HTMLTextAreaElement, value: string) => {
+            // Use native setter to bypass React's controlled component tracking
+            const prototype = Object.getPrototypeOf(el);
+            const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+            if (descriptor?.set) {
+              descriptor.set.call(el, value);
             } else {
-              (el as HTMLInputElement).value = inst.value;
+              el.value = value;
             }
-
+            // Dispatch all events frameworks might listen for
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+          };
+
+          const setSelectValue = (el: HTMLSelectElement, value: string) => {
+            const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+            if (descriptor?.set) {
+              descriptor.set.call(el, value);
+            } else {
+              el.value = value;
+            }
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+
+          for (const inst of fillInstructions) {
+            const el = document.querySelector(inst.selector) as HTMLElement | null;
+            if (!el) continue;
+
+            try {
+              if (inst.method === 'check' && el instanceof HTMLInputElement) {
+                el.checked = inst.value === 'true';
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('click', { bubbles: true }));
+              } else if (inst.method === 'select' && el instanceof HTMLSelectElement) {
+                setSelectValue(el, inst.value);
+              } else if (el.hasAttribute('contenteditable')) {
+                el.textContent = inst.value;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+              } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+                // Focus first (some frameworks validate on focus)
+                el.focus();
+                setInputValue(el, inst.value);
+              }
+            } catch (err) {
+              console.error('Failed to fill field:', inst.selector, err);
+            }
           }
         },
         args: [instructions],
