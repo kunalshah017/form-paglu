@@ -197,16 +197,45 @@ const extractData = async (
   return postProcessFacts(allFacts);
 };
 
-// Post-process: filter bad data, deduplicate, normalize
+// Post-process: resolve redirects, filter bad data, deduplicate, normalize
 const REDIRECT_DOMAINS = ['lnkd.in', 'bit.ly', 't.co', 'goo.gl', 'tinyurl.com', 'shorturl.at'];
 
-const postProcessFacts = (facts: ExtractedFact[]): ExtractedFact[] => {
-  const filtered = facts.filter(fact => {
-    // Remove facts with redirect URLs as values
-    if (fact.value && REDIRECT_DOMAINS.some(domain => fact.value.includes(domain))) {
-      return false;
+const isRedirectUrl = (value: string): boolean => REDIRECT_DOMAINS.some(domain => value.includes(domain));
+
+// Resolve a shortened URL to its final destination
+const resolveRedirectUrl = async (url: string): Promise<string | null> => {
+  try {
+    // Ensure it has a protocol
+    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+    const response = await fetch(fullUrl, { method: 'HEAD', redirect: 'follow' });
+    const finalUrl = response.url;
+    // Only return if it resolved to something different and useful
+    if (finalUrl && finalUrl !== fullUrl && !isRedirectUrl(finalUrl)) {
+      return finalUrl;
     }
-    // Remove empty values (except for delete actions)
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]> => {
+  // Resolve redirect URLs instead of just filtering them out
+  const resolved = await Promise.all(
+    facts.map(async fact => {
+      if (fact.value && isRedirectUrl(fact.value)) {
+        const resolvedUrl = await resolveRedirectUrl(fact.value);
+        if (resolvedUrl) {
+          return { ...fact, value: resolvedUrl };
+        }
+        // If resolution failed, drop the fact
+        return null;
+      }
+      return fact;
+    }),
+  );
+
+  const filtered = (resolved.filter(Boolean) as ExtractedFact[]).filter(fact => {
     if (!fact.value && fact.action !== 'delete') return false;
     return true;
   });
