@@ -1,15 +1,13 @@
-import type OpenAI from 'openai';
+import { z } from 'zod';
 
+// --- Extraction ---
 export const EXTRACT_SYSTEM_PROMPT = `You are a data extraction agent for "Form Paglu". You receive webpage content chunks and extract the PROFILE OWNER's personal data only.
 
 CRITICAL RULES:
 1. Only extract data about the PROFILE OWNER (the person whose page this is), NOT other people mentioned.
 2. Store ALL URLs you find associated with the user (even shortened ones like lnkd.in - they will be resolved automatically).
-3. Use CONSISTENT keys - don't create multiple keys for the same concept:
-   - One "linkedin_url" not "linkedin_url" + "linkedin_profile"
-   - One "github_url" not "github_url" + "github_profile"  
-   - One "job_title_current" for current job, "job_title_1", "job_title_2" for past jobs (numbered by recency)
-4. For work history, use numbered suffixes: company_1, job_title_1, work_start_1, work_end_1 (1 = most recent past job)
+3. Use CONSISTENT keys - don't create multiple keys for the same concept.
+4. For work history, use numbered suffixes: company_1, job_title_1 (1 = most recent past job)
 5. Current job uses "_current" suffix: company_current, job_title_current
 
 EXISTING MEMORY handling:
@@ -18,85 +16,59 @@ EXISTING MEMORY handling:
 - If existing data is clearly wrong: include with action "delete"
 - If data is new: include with action "store"
 
-Extract ALL user data you can find:
-- Personal: full_name, gender, date_of_birth, languages
-- Contact: email_primary, phone_mobile, phone_home
-- Address: city, state, country, zip_code, full_address
-- Education: university_name, degree_type, field_of_study, graduation_year, gpa
-- Work: company_current, job_title_current, work_start_current, company_1, job_title_1, etc.
-- Skills: skills (comma-separated list)
-- Social: linkedin_url, github_url, portfolio_url, twitter_url (store any URL found, even shortened)
-- Identification: certifications, licenses
+Extract ALL user data: personal, contact, address, education, work, skills, social, identification.
+IGNORE: other people's info, recommendations, endorsements, page UI, ads.
 
-IGNORE: other people's info, recommendations text, endorsements from others, page UI elements, ads.
+If a chunk has no useful user data, just say so (don't call the tool).`;
 
-If a chunk has no useful user data, respond with text "No user data found" (don't call the tool).`;
-
+// --- Form Fill ---
 export const FILL_SYSTEM_PROMPT = `You are a form-filling AI agent. You fill ALL fields on a form using user memory.
 
-You will receive:
-1. USER_MEMORY: Known facts about the user
-2. FORM_FIELDS: Form fields with their attributes (some may already be filled from a previous pass)
-3. PASS: Which pass this is ("fill_data" or "generate_answers")
+You will receive USER_MEMORY and FORM_FIELDS. Use the fill_field tool to fill each field.
 
-## Pass: fill_data
-Map user memory directly to form fields. Fill everything you can match:
-- Text inputs: name, email, phone, city, URLs, companies, roles, dates
+For EACH field you can fill:
+- Text inputs: match from memory (name, email, phone, city, URLs, companies, roles)
 - Selects: pick the best matching option value
-- Checkboxes: check relevant ones based on user skills/preferences (method: "check", value: "true")
-- Radio buttons: select the most appropriate option (method: "check", value: "true")
+- Checkboxes/Radio: set value "true" with method "check"
 - Number inputs: years of experience, CTC, graduation year
-
-## Pass: generate_answers
-For fields that are STILL EMPTY (no currentValue), generate appropriate responses:
-- Open-ended questions ("why do you want to join?") → write a 2-3 sentence answer using user's background
-- Achievement questions → summarize from work history
-- Cover letter / motivation → craft from user's experience
-- Skills tags → provide comma-separated skills from memory
+- Date inputs: use YYYY-MM-DD format
+- Open-ended questions: GENERATE personalized answers from user's background (2-3 sentences)
+- Skills: provide comma-separated list from memory
 
 Rules:
-- For selects, use the option VALUE (not text)
-- For checkboxes/radio, use selector of the specific input element, method "check", value "true"
-- Skip fields that already have a value (currentValue is not empty)
-- For date inputs, use YYYY-MM-DD format
-- Generate realistic, personalized answers for open-ended questions
+- Skip fields that already have a currentValue
+- For selects, use the option VALUE not display text
+- Generate realistic answers for subjective questions using the user's work history
+- Fill as many fields as possible in one pass`;
 
-Respond ONLY with valid JSON array:
-[{"selector": "css-selector", "value": "value-to-fill", "method": "set|select|check"}]
+// --- Zod Schemas ---
+export const storeFactsSchema = z.object({
+  facts: z.array(
+    z.object({
+      category: z
+        .string()
+        .describe(
+          'Category: personal, contact, address, education, work, financial, identification, medical, preferences, social',
+        ),
+      key: z.string().describe('Semantic key like full_name, email_primary, phone_mobile, company_current'),
+      value: z.string().describe('The extracted value'),
+      confidence: z.number().describe('Confidence score 0-1'),
+      action: z.enum(['store', 'update', 'delete']).optional().describe('What to do with this fact'),
+    }),
+  ),
+});
 
-If no fields can be filled, respond with: []`;
+export const fillFieldSchema = z.object({
+  selector: z.string().describe('CSS selector for the form field'),
+  value: z.string().describe('Value to fill in the field'),
+  method: z
+    .enum(['set', 'select', 'check'])
+    .describe('How to set the value: set for inputs/textareas, select for dropdowns, check for checkboxes/radio'),
+});
 
-export const STORE_FACTS_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
-  type: 'function',
-  function: {
-    name: 'store_facts',
-    description: 'Store, update, or delete user facts. Only include facts that need changes.',
-    parameters: {
-      type: 'object',
-      properties: {
-        facts: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              category: {
-                type: 'string',
-                description:
-                  'Category: personal, contact, address, education, work, financial, identification, medical, preferences, social',
-              },
-              key: {
-                type: 'string',
-                description: 'Semantic key like full_name, email_primary, phone_mobile, company_current',
-              },
-              value: { type: 'string', description: 'The extracted value (empty string for delete action)' },
-              confidence: { type: 'number', description: 'Confidence score 0-1' },
-              action: { type: 'string', enum: ['store', 'update', 'delete'], description: 'What to do with this fact' },
-            },
-            required: ['category', 'key', 'value', 'confidence'],
-          },
-        },
-      },
-      required: ['facts'],
-    },
-  },
-};
+export const fillResultSchema = z.object({
+  fields: z.array(fillFieldSchema),
+});
+
+export type ExtractedFact = z.infer<typeof storeFactsSchema>['facts'][number];
+export type FillInstruction = z.infer<typeof fillFieldSchema>;

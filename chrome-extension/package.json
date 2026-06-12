@@ -19,11 +19,13 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.71",
     "@extension/env": "workspace:*",
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
-    "openai": "^6.42.0",
-    "webextension-polyfill": "^0.12.0"
+    "ai": "^6.0.206",
+    "webextension-polyfill": "^0.12.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@extension/dev-utils": "workspace:*",
