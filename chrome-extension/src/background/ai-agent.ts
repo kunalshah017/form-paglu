@@ -83,19 +83,63 @@ const processChunk = async (
     temperature: 0.1,
   });
 
-  // Fallback: if model returned JSON content instead of tool call
-  if (allFacts.length === 0 && result.text) {
-    try {
-      const match = result.text.match(/\[[\s\S]*\]/);
-      if (match) {
-        const parsed = JSON.parse(match[0]);
-        if (Array.isArray(parsed)) allFacts.push(...parsed);
+  // Fallback: handle malformed tool calls and text responses
+  if (allFacts.length === 0) {
+    // Check if any step had tool calls with malformed arguments
+    for (const step of result.steps) {
+      for (const tc of step.toolCalls || []) {
+        if (tc.toolName === 'store_facts' && tc.args) {
+          try {
+            const args = tc.args as Record<string, unknown>;
+            let factsData = args.facts;
+            // Handle double-encoded string (NVIDIA bug)
+            if (typeof factsData === 'string') {
+              factsData = JSON.parse(factsData);
+            }
+            if (Array.isArray(factsData)) {
+              for (const f of factsData) {
+                // Normalize: some models use 'fact' instead of 'key'
+                allFacts.push({
+                  category: f.category || 'other',
+                  key: f.key || f.fact || f.name || '',
+                  value: f.value || '',
+                  confidence: f.confidence ?? 0.8,
+                  action: f.action,
+                });
+              }
+            }
+          } catch {
+            console.error('Failed to parse malformed tool args');
+          }
+        }
       }
-    } catch {
-      // ignore parse failures
+    }
+
+    // Final fallback: parse JSON from text content
+    if (allFacts.length === 0 && result.text) {
+      try {
+        const match = result.text.match(/\[[\s\S]*\]/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (Array.isArray(parsed)) {
+            for (const f of parsed) {
+              allFacts.push({
+                category: f.category || 'other',
+                key: f.key || f.fact || f.name || '',
+                value: f.value || '',
+                confidence: f.confidence ?? 0.8,
+                action: f.action,
+              });
+            }
+          }
+        }
+      } catch {
+        console.error('Failed to parse text fallback');
+      }
     }
   }
 
+  console.log(`processChunk: extracted ${allFacts.length} facts`);
   return allFacts;
 };
 
@@ -136,7 +180,7 @@ const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]
 };
 
 // Threshold: if cleaned content is under this, use single AI call (no chunking)
-const SINGLE_CALL_THRESHOLD = 12000;
+const SINGLE_CALL_THRESHOLD = 30000;
 
 const extractData = async (
   content: string,
