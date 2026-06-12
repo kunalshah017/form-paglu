@@ -48,7 +48,6 @@ const createProvider = (apiKey: string, baseUrl: string) =>
   createOpenAI({ apiKey, baseURL: baseUrl, compatibility: 'compatible' });
 
 // --- Extraction Agent ---
-const CONCURRENCY = 4;
 
 const processChunk = async (
   apiKey: string,
@@ -136,7 +135,9 @@ const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]
   return Array.from(deduped.values());
 };
 
-// Main extraction
+// Threshold: if cleaned content is under this, use single AI call (no chunking)
+const SINGLE_CALL_THRESHOLD = 12000;
+
 const extractData = async (
   content: string,
   apiKey: string,
@@ -145,24 +146,42 @@ const extractData = async (
   existingMemory: string,
   onProgress?: (current: number, total: number, factsFound: number) => void,
 ): Promise<ExtractedFact[]> => {
+  // Content is already cleaned by Readability in the content script
+  // Only do light additional cleaning
   const cleaned = cleanContent(content);
-  const chunks = splitIntoChunks(cleaned);
-  const allFacts: ExtractedFact[] = [];
-  let completed = 0;
+  console.log(`Extraction: content length after cleaning: ${cleaned.length} chars`);
 
-  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-    const batch = chunks.slice(i, i + CONCURRENCY);
+  let allFacts: ExtractedFact[];
+
+  if (cleaned.length <= SINGLE_CALL_THRESHOLD) {
+    // FAST PATH: Single AI call (most pages after Readability extraction)
+    console.log('Using single-call extraction (content fits in one request)');
+    onProgress?.(0, 1, 0);
+    allFacts = await processChunk(apiKey, baseUrl, model, cleaned, 0, 1, existingMemory);
+    onProgress?.(1, 1, allFacts.length);
+  } else {
+    // SUB-AGENT PATH: Content too large, split into chunks processed in parallel
+    // Each sub-agent processes a chunk independently, main agent merges results
+    console.log(`Using sub-agent extraction (${cleaned.length} chars > ${SINGLE_CALL_THRESHOLD} threshold)`);
+    const chunks = splitIntoChunks(cleaned);
+    allFacts = [];
+    let completed = 0;
+
+    // Process all chunks in parallel (sub-agents)
     const results = await Promise.allSettled(
-      batch.map((chunk, idx) => processChunk(apiKey, baseUrl, model, chunk, i + idx, chunks.length, existingMemory)),
+      chunks.map((chunk, idx) => processChunk(apiKey, baseUrl, model, chunk, idx, chunks.length, existingMemory)),
     );
+
+    // Main agent: merge results from all sub-agents
     for (const result of results) {
       if (result.status === 'fulfilled') allFacts.push(...result.value);
-      else console.error('Chunk failed:', result.reason);
+      else console.error('Sub-agent chunk failed:', result.reason);
       completed++;
       onProgress?.(completed, chunks.length, allFacts.length);
     }
   }
 
+  // Main agent: deduplicate and post-process merged results
   return postProcessFacts(allFacts);
 };
 

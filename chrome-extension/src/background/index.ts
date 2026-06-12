@@ -72,7 +72,76 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
 
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => document.body.innerText,
+        func: () => {
+          // Readability-style content extraction: strip boilerplate, keep main content
+          const clone = document.cloneNode(true) as Document;
+
+          // Remove non-content elements
+          const removeSelectors = [
+            'script',
+            'style',
+            'noscript',
+            'iframe',
+            'svg',
+            'canvas',
+            'nav',
+            'footer',
+            'header',
+            '[role="navigation"]',
+            '[role="banner"]',
+            '[role="contentinfo"]',
+            '.nav',
+            '.navbar',
+            '.footer',
+            '.header',
+            '.sidebar',
+            '.menu',
+            '.advertisement',
+            '.ad',
+            '.ads',
+            '.cookie-banner',
+            '.popup',
+            '.modal',
+            '.overlay',
+            '.social-share',
+            '.comments',
+          ];
+          for (const sel of removeSelectors) {
+            clone.querySelectorAll(sel).forEach(el => el.remove());
+          }
+
+          // Try to find main content area
+          const mainSelectors = ['main', 'article', '[role="main"]', '.main-content', '#content', '.content'];
+          let mainEl: Element | null = null;
+          for (const sel of mainSelectors) {
+            mainEl = clone.querySelector(sel);
+            if (mainEl && mainEl.textContent && mainEl.textContent.trim().length > 200) break;
+            mainEl = null;
+          }
+
+          // Fallback: use body
+          const source = mainEl || clone.body;
+          if (!source) return '';
+
+          // Get text content, clean up whitespace
+          const text = source.textContent || '';
+          const lines = text.split('\n');
+          const cleaned: string[] = [];
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (trimmed.length <= 2) continue;
+            cleaned.push(trimmed);
+          }
+
+          // Deduplicate consecutive lines
+          const deduped: string[] = [];
+          for (const line of cleaned) {
+            if (deduped[deduped.length - 1] !== line) deduped.push(line);
+          }
+
+          return deduped.join('\n');
+        },
       });
       return { content: results[0]?.result ?? '', url: tab.url };
     }
