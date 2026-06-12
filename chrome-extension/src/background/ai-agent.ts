@@ -253,6 +253,51 @@ const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]
   return Array.from(deduped.values());
 };
 
+// Single pass of fill instruction generation
+const runFillPass = async (
+  client: OpenAI,
+  model: string,
+  userMemory: string,
+  formFields: string,
+  pass: string,
+): Promise<FillInstruction[]> => {
+  const stream = await client.chat.completions.create({
+    model,
+    stream: true,
+    messages: [
+      { role: 'system', content: FILL_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `PASS: ${pass}\n\nUSER_MEMORY:\n${userMemory}\n\nFORM_FIELDS:\n${formFields}`,
+      },
+    ],
+    temperature: pass === 'generate_answers' ? 0.4 : 0.1,
+  });
+
+  const { content } = await collectStreamResponse(
+    stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  );
+
+  console.log(`Fill pass "${pass}" response length:`, content.length);
+
+  if (!content) return [];
+
+  try {
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error(`No JSON in "${pass}" response:`, content.slice(0, 300));
+      return [];
+    }
+    const instructions = JSON.parse(jsonMatch[0]) as FillInstruction[];
+    console.log(`Fill pass "${pass}": ${instructions.length} instructions`);
+    return instructions;
+  } catch (err) {
+    console.error(`Failed to parse "${pass}" response:`, err, content.slice(0, 300));
+    return [];
+  }
+};
+
+// Multi-turn fill: data pass → generate pass
 const generateFillInstructions = async (
   userMemory: string,
   formFields: string,
@@ -261,45 +306,35 @@ const generateFillInstructions = async (
   model: string,
 ): Promise<FillInstruction[]> => {
   const client = createClient(apiKey, baseUrl);
+  const allInstructions: FillInstruction[] = [];
 
-  const stream = await client.chat.completions.create({
-    model,
-    stream: true,
-    messages: [
-      { role: 'system', content: FILL_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `USER_MEMORY:\n${userMemory}\n\nFORM_FIELDS:\n${formFields}`,
-      },
-    ],
-    temperature: 0.1,
-  });
+  // Pass 1: Fill direct data matches (name, email, phone, selects, checkboxes, etc.)
+  console.log('Starting fill pass 1: fill_data');
+  const dataInstructions = await runFillPass(client, model, userMemory, formFields, 'fill_data');
+  allInstructions.push(...dataInstructions);
 
-  const { content } = await collectStreamResponse(
-    stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  // Pass 2: Generate answers for open-ended/empty fields
+  // Update form fields with what we just filled to avoid re-filling
+  const filledSelectors = new Set(dataInstructions.map(i => i.selector));
+  const fields = JSON.parse(formFields);
+  const remainingFields = fields.filter(
+    (f: { selector: string; currentValue?: string }) => !filledSelectors.has(f.selector) && !f.currentValue,
   );
 
-  console.log('Fill AI response content length:', content.length);
-  console.log('Fill AI response preview:', content.slice(0, 200));
-
-  if (!content) {
-    console.error('Empty fill response from AI');
-    return [];
+  if (remainingFields.length > 0) {
+    console.log(`Starting fill pass 2: generate_answers (${remainingFields.length} remaining fields)`);
+    const generateInstructions = await runFillPass(
+      client,
+      model,
+      userMemory,
+      JSON.stringify(remainingFields),
+      'generate_answers',
+    );
+    allInstructions.push(...generateInstructions);
   }
 
-  try {
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.error('No JSON array found in fill response:', content.slice(0, 500));
-      return [];
-    }
-    const instructions = JSON.parse(jsonMatch[0]) as FillInstruction[];
-    console.log('Parsed fill instructions:', instructions.length);
-    return instructions;
-  } catch (err) {
-    console.error('Failed to parse AI fill response:', err, content.slice(0, 500));
-    return [];
-  }
+  console.log(`Total fill instructions: ${allInstructions.length}`);
+  return allInstructions;
 };
 
 export { extractData, generateFillInstructions, splitIntoChunks, cleanContent };

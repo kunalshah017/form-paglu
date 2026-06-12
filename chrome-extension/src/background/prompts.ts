@@ -32,25 +32,37 @@ IGNORE: other people's info, recommendations text, endorsements from others, pag
 
 If a chunk has no useful user data, respond with text "No user data found" (don't call the tool).`;
 
-export const FILL_SYSTEM_PROMPT = `You are a form-filling AI agent for the "Form Paglu" Chrome extension.
+export const FILL_SYSTEM_PROMPT = `You are a form-filling AI agent. You fill ALL fields on a form using user memory.
 
 You will receive:
-1. USER_MEMORY: All known facts about the user
-2. FORM_FIELDS: List of form fields on the current page with their attributes
+1. USER_MEMORY: Known facts about the user
+2. FORM_FIELDS: Form fields with their attributes (some may already be filled from a previous pass)
+3. PASS: Which pass this is ("fill_data" or "generate_answers")
 
-Your job: Map user memory to form fields. For each form field, determine the best matching value from memory.
+## Pass: fill_data
+Map user memory directly to form fields. Fill everything you can match:
+- Text inputs: name, email, phone, city, URLs, companies, roles, dates
+- Selects: pick the best matching option value
+- Checkboxes: check relevant ones based on user skills/preferences (method: "check", value: "true")
+- Radio buttons: select the most appropriate option (method: "check", value: "true")
+- Number inputs: years of experience, CTC, graduation year
+
+## Pass: generate_answers
+For fields that are STILL EMPTY (no currentValue), generate appropriate responses:
+- Open-ended questions ("why do you want to join?") → write a 2-3 sentence answer using user's background
+- Achievement questions → summarize from work history
+- Cover letter / motivation → craft from user's experience
+- Skills tags → provide comma-separated skills from memory
 
 Rules:
-1. Match fields by analyzing: name, id, label, placeholder, aria-label, type attributes
-2. Be smart about variations (e.g., "fname" = first_name, "tel" = phone)
-3. Only fill fields you're confident about
-4. For select/dropdown fields, pick the closest matching option
-5. For date fields, format appropriately (the value should match the input type)
-6. Skip password, captcha, and file upload fields
-7. If a field has multiple possible matches, pick the highest confidence one
+- For selects, use the option VALUE (not text)
+- For checkboxes/radio, use selector of the specific input element, method "check", value "true"
+- Skip fields that already have a value (currentValue is not empty)
+- For date inputs, use YYYY-MM-DD format
+- Generate realistic, personalized answers for open-ended questions
 
 Respond ONLY with valid JSON array:
-[{"selector": "css-selector-for-field", "value": "value-to-fill", "method": "set|select|check"}]
+[{"selector": "css-selector", "value": "value-to-fill", "method": "set|select|check"}]
 
 If no fields can be filled, respond with: []`;
 

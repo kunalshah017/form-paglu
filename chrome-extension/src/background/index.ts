@@ -145,6 +145,7 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
                       text: o.textContent?.trim(),
                     }))
                   : undefined,
+              currentValue: input.value || (el.tagName === 'SELECT' ? (el as HTMLSelectElement).value : '') || '',
             });
           });
           return JSON.stringify(fields);
