@@ -279,12 +279,25 @@ const generateFillInstructions = async (
     stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
   );
 
+  console.log('Fill AI response content length:', content.length);
+  console.log('Fill AI response preview:', content.slice(0, 200));
+
+  if (!content) {
+    console.error('Empty fill response from AI');
+    return [];
+  }
+
   try {
     const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-    return JSON.parse(jsonMatch[0]) as FillInstruction[];
-  } catch {
-    console.error('Failed to parse AI fill response:', content);
+    if (!jsonMatch) {
+      console.error('No JSON array found in fill response:', content.slice(0, 500));
+      return [];
+    }
+    const instructions = JSON.parse(jsonMatch[0]) as FillInstruction[];
+    console.log('Parsed fill instructions:', instructions.length);
+    return instructions;
+  } catch (err) {
+    console.error('Failed to parse AI fill response:', err, content.slice(0, 500));
     return [];
   }
 };

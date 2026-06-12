@@ -49,7 +49,12 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
         baseUrl: string;
         model: string;
       };
+      console.log('FILL_FORM: memory length:', userMemory.length, 'fields count:', JSON.parse(formFields).length);
       const instructions = await generateFillInstructions(userMemory, formFields, apiKey, baseUrl, model);
+      console.log('FILL_FORM: got', instructions.length, 'instructions');
+      if (instructions.length > 0) {
+        console.log('FILL_FORM: first instruction:', JSON.stringify(instructions[0]));
+      }
       return { instructions };
     }
 
