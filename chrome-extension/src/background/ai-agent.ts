@@ -92,6 +92,7 @@ const processChunk = async (
     },
     maxSteps: 3,
     temperature: 0.1,
+    toolChoice: 'required', // Force model to call tools (no text-only responses)
   });
 
   // Fallback: handle malformed tool calls and text responses

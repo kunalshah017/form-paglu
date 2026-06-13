@@ -15,7 +15,7 @@ const PROVIDERS = [
     id: 'google',
     label: 'Google AI Studio (free)',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-2.5-flash-lite',
+    defaultModel: 'gemini-3.1-flash-lite',
   },
   {
     id: 'nvidia',

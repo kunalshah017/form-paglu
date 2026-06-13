@@ -64,7 +64,7 @@ const FormPagluApp: FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [provider, setProvider] = useState('google');
   const [baseUrl, setBaseUrl] = useState('https://generativelanguage.googleapis.com/v1beta/openai');
-  const [model, setModel] = useState('gemini-2.5-flash-lite');
+  const [model, setModel] = useState('gemini-3.1-flash-lite');
   const [factCount, setFactCount] = useState(0);
   const [loading, setLoading] = useState<'scan' | 'fill' | null>(null);
   const [status, setStatus] = useState('');
@@ -102,7 +102,7 @@ const FormPagluApp: FC = () => {
         setApiKey(settings.apiKey ? atob(settings.apiKey) : '');
         setProvider(settings.apiProvider || 'google');
         setBaseUrl(settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai');
-        setModel(settings.model || 'gemini-2.5-flash-lite');
+        setModel(settings.model || 'gemini-3.1-flash-lite');
       }
     });
     refreshFactCount();
