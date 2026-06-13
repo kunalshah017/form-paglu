@@ -171,8 +171,30 @@ const resolveRedirectUrl = async (url: string): Promise<string | null> => {
 };
 
 const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]> => {
+  // First: split comma-separated URL facts into individual facts
+  const expanded: ExtractedFact[] = [];
+  for (const fact of facts) {
+    if (fact.value && fact.value.includes(',') && isRedirectUrl(fact.value)) {
+      // Multiple redirect URLs in one value — split into individual facts
+      const urls = fact.value
+        .split(',')
+        .map(u => u.trim())
+        .filter(u => u.length > 0);
+      for (let i = 0; i < urls.length; i++) {
+        expanded.push({
+          ...fact,
+          key: urls.length > 1 ? `${fact.key}_${i + 1}` : fact.key,
+          value: urls[i],
+        });
+      }
+    } else {
+      expanded.push(fact);
+    }
+  }
+
+  // Resolve redirect URLs
   const resolved = await Promise.all(
-    facts.map(async fact => {
+    expanded.map(async fact => {
       if (fact.value && isRedirectUrl(fact.value)) {
         const url = await resolveRedirectUrl(fact.value);
         return url ? { ...fact, value: url } : null;
