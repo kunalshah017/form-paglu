@@ -1,7 +1,7 @@
-import { EXTRACT_SYSTEM_PROMPT, FILL_SYSTEM_PROMPT, storeFactsSchema } from './prompts';
+import { EXTRACT_SYSTEM_PROMPT, FILL_SYSTEM_PROMPT, storeFactsSchema, fillResultSchema } from './prompts';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText, tool } from 'ai';
+import { generateText, generateObject, tool } from 'ai';
 import { z } from 'zod';
 import type { ExtractedFact, FillInstruction } from './prompts';
 import type { LanguageModelV1 } from 'ai';
@@ -61,6 +61,8 @@ const getModel = (apiKey: string, baseUrl: string, model: string): LanguageModel
 
 // --- Extraction Agent ---
 
+const isGoogleProvider = (baseUrl: string): boolean => baseUrl.includes('generativelanguage.googleapis.com');
+
 const processChunk = async (
   apiKey: string,
   baseUrl: string,
@@ -74,6 +76,25 @@ const processChunk = async (
     ? `EXISTING MEMORY:\n${existingMemory}\n\n---\nChunk ${chunkIndex + 1}/${totalChunks}:\n\n${chunk}`
     : `Chunk ${chunkIndex + 1}/${totalChunks}:\n\n${chunk}`;
 
+  // For Google: use generateObject (structured output) — most reliable for Gemini
+  if (isGoogleProvider(baseUrl)) {
+    try {
+      const result = await generateObject({
+        model: getModel(apiKey, baseUrl, model),
+        schema: storeFactsSchema,
+        system: EXTRACT_SYSTEM_PROMPT,
+        prompt: userContent,
+        temperature: 0.1,
+      });
+      console.log(`processChunk (structured): extracted ${result.object.facts.length} facts`);
+      return result.object.facts;
+    } catch (err) {
+      console.error('Structured output failed, trying text fallback:', err);
+      // Fall through to text-based extraction below
+    }
+  }
+
+  // For other providers: use tool calling with generateText
   const allFacts: ExtractedFact[] = [];
 
   const result = await generateText({
@@ -82,7 +103,8 @@ const processChunk = async (
     prompt: userContent,
     tools: {
       store_facts: tool({
-        description: 'Store extracted user facts into memory',
+        description:
+          'Store extracted user facts into memory. Call with an array of facts, each having category, key, value, confidence, and optional action.',
         parameters: storeFactsSchema,
         execute: async ({ facts }) => {
           allFacts.push(...facts);
@@ -92,7 +114,7 @@ const processChunk = async (
     },
     maxSteps: 3,
     temperature: 0.1,
-    toolChoice: 'required', // Force model to call tools (no text-only responses)
+    toolChoice: 'auto',
   });
 
   // Fallback: handle malformed tool calls and text responses
@@ -162,9 +184,24 @@ const isRedirectUrl = (value: string): boolean => REDIRECT_DOMAINS.some(d => val
 const resolveRedirectUrl = async (url: string): Promise<string | null> => {
   try {
     const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-    const response = await fetch(fullUrl, { method: 'HEAD', redirect: 'follow' });
-    const finalUrl = response.url;
-    if (finalUrl && finalUrl !== fullUrl && !isRedirectUrl(finalUrl)) return finalUrl;
+    // Try redirect: 'manual' first to read Location header
+    const manualRes = await fetch(fullUrl, { method: 'GET', redirect: 'manual' });
+    const location = manualRes.headers.get('location');
+    if (location && !isRedirectUrl(location)) {
+      return location.startsWith('http') ? location : `https://${location}`;
+    }
+    // LinkedIn lnkd.in serves an interstitial HTML page with the real URL
+    // Parse the HTML to find the actual destination link
+    const response = await fetch(fullUrl, { method: 'GET', redirect: 'follow' });
+    const html = await response.text();
+    // Look for the external link: <a ... data-tracking-control-name="external_url_click" ... href="REAL_URL">
+    const extMatch = html.match(/data-tracking-control-name="external_url_click"[^>]*href="([^"]+)"/);
+    if (extMatch?.[1] && !isRedirectUrl(extMatch[1])) return extMatch[1];
+    // Fallback: look for href in reverse order (href before data-tracking)
+    const extMatch2 = html.match(/href="([^"]+)"[^>]*data-tracking-control-name="external_url_click"/);
+    if (extMatch2?.[1] && !isRedirectUrl(extMatch2[1])) return extMatch2[1];
+    // Check if the response URL itself resolved
+    if (response.url && response.url !== fullUrl && !isRedirectUrl(response.url)) return response.url;
     return null;
   } catch {
     return null;
@@ -193,17 +230,20 @@ const postProcessFacts = async (facts: ExtractedFact[]): Promise<ExtractedFact[]
     }
   }
 
-  // Resolve redirect URLs
+  // Resolve redirect URLs (keep original if resolution fails)
   const resolved = await Promise.all(
     expanded.map(async fact => {
       if (fact.value && isRedirectUrl(fact.value)) {
         const url = await resolveRedirectUrl(fact.value);
-        return url ? { ...fact, value: url } : null;
+        if (url) return { ...fact, value: url };
+        // Keep the original shortened URL rather than dropping the fact
+        console.log(`Could not resolve redirect URL, keeping original: ${fact.value}`);
+        return fact;
       }
       return fact;
     }),
   );
-  const filtered = (resolved.filter(Boolean) as ExtractedFact[]).filter(f => f.value || f.action === 'delete');
+  const filtered = resolved.filter(f => f.value || f.action === 'delete');
   const deduped = new Map<string, ExtractedFact>();
   for (const fact of filtered) {
     const key = `${fact.category}:${fact.key}`;
@@ -264,29 +304,56 @@ const extractData = async (
 };
 
 // --- Form Fill Agent ---
+type FillResult = { instructions: FillInstruction[]; needsMoreInteraction: boolean };
+
 const generateFillInstructions = async (
   userMemory: string,
   formFields: string,
   apiKey: string,
   baseUrl: string,
   model: string,
-): Promise<FillInstruction[]> => {
+): Promise<FillResult> => {
+  const prompt = `USER_MEMORY:\n${userMemory}\n\nFORM_FIELDS:\n${formFields}`;
+
+  // For Google: use generateObject (structured output) — Gemini handles this reliably
+  if (isGoogleProvider(baseUrl)) {
+    try {
+      const result = await generateObject({
+        model: getModel(apiKey, baseUrl, model),
+        schema: fillResultSchema,
+        system: FILL_SYSTEM_PROMPT,
+        prompt,
+        temperature: 0.2,
+      });
+      console.log(
+        `Fill agent (structured): ${result.object.fields.length} instructions generated, needsMore: ${result.object.needsMoreInteraction}`,
+      );
+      return {
+        instructions: result.object.fields,
+        needsMoreInteraction: result.object.needsMoreInteraction ?? false,
+      };
+    } catch (err) {
+      console.error('Structured fill failed, trying tool-calling fallback:', err);
+      // Fall through to tool calling below
+    }
+  }
+
+  // For other providers: use tool calling with generateText
   const allInstructions: FillInstruction[] = [];
 
-  // Use generateText with tool calling - agent decides what to fill
   const result = await generateText({
     model: getModel(apiKey, baseUrl, model),
     system: FILL_SYSTEM_PROMPT,
-    prompt: `USER_MEMORY:\n${userMemory}\n\nFORM_FIELDS:\n${formFields}`,
+    prompt,
     tools: {
       fill_field: tool({
-        description: 'Fill a form field with a value',
+        description: 'Fill a form field with a value or click a button',
         parameters: z.object({
-          selector: z.string().describe('CSS selector for the field'),
-          value: z.string().describe('Value to fill'),
+          selector: z.string().describe('CSS selector for the field or button'),
+          value: z.string().describe('Value to fill, or empty string for click'),
           method: z
-            .enum(['set', 'select', 'check'])
-            .describe('How to set: set for text, select for dropdowns, check for checkboxes'),
+            .enum(['set', 'select', 'check', 'click'])
+            .describe('How to interact: set for text, select for dropdowns, check for checkboxes, click for buttons'),
         }),
         execute: async ({ selector, value, method }) => {
           allInstructions.push({ selector, value, method });
@@ -311,8 +378,9 @@ const generateFillInstructions = async (
     }
   }
 
+  const hasClicks = allInstructions.some(i => i.method === 'click');
   console.log(`Fill agent: ${allInstructions.length} instructions generated in ${result.steps.length} steps`);
-  return allInstructions;
+  return { instructions: allInstructions, needsMoreInteraction: hasClicks };
 };
 
 export { extractData, generateFillInstructions, splitIntoChunks, cleanContent };

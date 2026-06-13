@@ -617,6 +617,13 @@
 
                 <div id="experience-entries">
                     <div class="experience-entry">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:12px; color:var(--muted);">Position #1</span>
+                            <button type="button" class="remove-entry-btn" onclick="removeExperience(this)"
+                                style="font-size:12px; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:2px 8px; cursor:pointer;">✕
+                                Remove</button>
+                        </div>
                         <div class="field-row">
                             <div class="field-group">
                                 <label for="exp-company-1">Company Name</label>
@@ -759,6 +766,10 @@
             const entry = document.createElement('div');
             entry.className = 'experience-entry';
             entry.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--muted);">Position #${expCount}</span>
+          <button type="button" class="remove-entry-btn" onclick="removeExperience(this)" style="font-size:12px; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:2px 8px; cursor:pointer;">✕ Remove</button>
+        </div>
         <div class="field-row">
           <div class="field-group">
             <label for="exp-company-${expCount}">Company Name</label>
@@ -785,6 +796,11 @@
         </div>
       `;
             container.appendChild(entry);
+        }
+
+        function removeExperience(btn) {
+            const entry = btn.closest('.experience-entry');
+            if (entry) entry.remove();
         }
 
         // Submit Handler

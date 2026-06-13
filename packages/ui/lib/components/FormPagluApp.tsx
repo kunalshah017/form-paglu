@@ -238,24 +238,96 @@ const FormPagluApp: FC = () => {
         throw new Error('No data in memory. Scan a page first!');
       }
 
-      setStatus('AI is mapping data to form fields...');
-      const fieldsResp = await chrome.runtime.sendMessage({ type: 'GET_FORM_FIELDS' });
-      if (fieldsResp.error) throw new Error(fieldsResp.error);
+      let filledCount = 0;
+      const MAX_ITERATIONS = 4; // Safety limit to prevent infinite loops
 
-      const fillResp = await chrome.runtime.sendMessage({
-        type: 'FILL_FORM',
-        payload: { userMemory, formFields: fieldsResp.formFields, apiKey, baseUrl, model },
-      });
-      if (fillResp.error) throw new Error(fillResp.error);
+      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+        setStatus(
+          iteration === 0 ? 'AI is mapping data to form fields...' : `Pass ${iteration + 1}: Filling new fields...`,
+        );
 
-      if (fillResp.instructions.length > 0) {
-        await chrome.runtime.sendMessage({
-          type: 'EXECUTE_FILL',
-          payload: { instructions: fillResp.instructions },
+        // Read current form state
+        const fieldsResp = await chrome.runtime.sendMessage({ type: 'GET_FORM_FIELDS' });
+        if (fieldsResp.error) throw new Error(fieldsResp.error);
+
+        // Ask AI to fill + interact
+        const fillResp = await chrome.runtime.sendMessage({
+          type: 'FILL_FORM',
+          payload: { userMemory, formFields: fieldsResp.formFields, apiKey, baseUrl, model },
         });
+        if (fillResp.error) throw new Error(fillResp.error);
+
+        if (fillResp.instructions.length > 0) {
+          // Execute click actions first, then fills (clicks reveal new fields)
+          const clicks = fillResp.instructions.filter((i: { method: string }) => i.method === 'click');
+          const fills = fillResp.instructions.filter((i: { method: string }) => i.method !== 'click');
+
+          if (clicks.length > 0) {
+            await chrome.runtime.sendMessage({
+              type: 'EXECUTE_FILL',
+              payload: { instructions: clicks },
+            });
+            // Wait for DOM to update after clicks
+            await new Promise(r => setTimeout(r, 600));
+          }
+
+          if (fills.length > 0) {
+            await chrome.runtime.sendMessage({
+              type: 'EXECUTE_FILL',
+              payload: { instructions: fills },
+            });
+            filledCount += fills.length;
+          }
+        }
+
+        setStatus(`Filled ${filledCount} fields so far...`);
+
+        // If no more interaction needed, break
+        if (!fillResp.needsMoreInteraction) break;
+
+        // Wait for DOM to stabilize before next iteration
+        await new Promise(r => setTimeout(r, 500));
       }
-      setStatus('Form filled!');
-      setTimeout(() => setStatus(''), 3000);
+
+      // Final verification pass
+      setStatus(`Verifying ${filledCount} filled fields...`);
+      await new Promise(r => setTimeout(r, 500));
+
+      const verifyResp = await chrome.runtime.sendMessage({ type: 'GET_FORM_FIELDS' });
+      if (!verifyResp.error) {
+        const verifyFields = JSON.parse(verifyResp.formFields) as Array<{
+          type: string;
+          currentValue: string;
+          label: string;
+          name: string;
+        }>;
+        const emptyFields = verifyFields.filter(f => {
+          if (f.type === 'radio' || f.type === 'checkbox' || f.type === 'action') return false;
+          if (f.currentValue && f.currentValue.trim()) return false;
+          return true;
+        });
+
+        if (emptyFields.length > 0 && emptyFields.length < 20) {
+          setStatus(`${emptyFields.length} fields still empty. Final pass...`);
+          const retryResp = await chrome.runtime.sendMessage({
+            type: 'FILL_FORM',
+            payload: { userMemory, formFields: verifyResp.formFields, apiKey, baseUrl, model },
+          });
+          if (!retryResp.error && retryResp.instructions.length > 0) {
+            const retryFills = retryResp.instructions.filter((i: { method: string }) => i.method !== 'click');
+            if (retryFills.length > 0) {
+              await chrome.runtime.sendMessage({
+                type: 'EXECUTE_FILL',
+                payload: { instructions: retryFills },
+              });
+              filledCount += retryFills.length;
+            }
+          }
+        }
+      }
+
+      setStatus(`Done! Filled ${filledCount} fields total.`);
+      setTimeout(() => setStatus(''), 4000);
     } catch (err) {
       setStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setTimeout(() => setStatus(''), 5000);
