@@ -47,6 +47,9 @@ const splitIntoChunks = (content: string): string[] => {
 const createProvider = (apiKey: string, baseUrl: string) =>
   createOpenAI({ apiKey, baseURL: baseUrl, compatibility: 'compatible' });
 
+// Force chat completions endpoint (NVIDIA/OpenRouter don't support /responses)
+const getModel = (apiKey: string, baseUrl: string, model: string) => createProvider(apiKey, baseUrl).chat(model);
+
 // --- Extraction Agent ---
 
 const processChunk = async (
@@ -58,7 +61,6 @@ const processChunk = async (
   totalChunks: number,
   existingMemory: string,
 ): Promise<ExtractedFact[]> => {
-  const provider = createProvider(apiKey, baseUrl);
   const userContent = existingMemory
     ? `EXISTING MEMORY:\n${existingMemory}\n\n---\nChunk ${chunkIndex + 1}/${totalChunks}:\n\n${chunk}`
     : `Chunk ${chunkIndex + 1}/${totalChunks}:\n\n${chunk}`;
@@ -66,7 +68,7 @@ const processChunk = async (
   const allFacts: ExtractedFact[] = [];
 
   const result = await generateText({
-    model: provider(model),
+    model: getModel(apiKey, baseUrl, model),
     system: EXTRACT_SYSTEM_PROMPT,
     prompt: userContent,
     tools: {
@@ -237,12 +239,11 @@ const generateFillInstructions = async (
   baseUrl: string,
   model: string,
 ): Promise<FillInstruction[]> => {
-  const provider = createProvider(apiKey, baseUrl);
   const allInstructions: FillInstruction[] = [];
 
   // Use generateText with tool calling - agent decides what to fill
   const result = await generateText({
-    model: provider(model),
+    model: getModel(apiKey, baseUrl, model),
     system: FILL_SYSTEM_PROMPT,
     prompt: `USER_MEMORY:\n${userMemory}\n\nFORM_FIELDS:\n${formFields}`,
     tools: {
