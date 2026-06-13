@@ -7,6 +7,7 @@ interface SettingsViewProps {
   provider: string;
   baseUrl: string;
   model: string;
+  highlightApiKey?: boolean;
   onSave: (settings: { apiKey: string; provider: string; baseUrl: string; model: string }) => void;
 }
 
@@ -32,7 +33,7 @@ const PROVIDERS = [
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '', defaultModel: '' },
 ];
 
-const SettingsView: FC<SettingsViewProps> = ({ apiKey, provider, baseUrl, model, onSave }) => {
+const SettingsView: FC<SettingsViewProps> = ({ apiKey, provider, baseUrl, model, highlightApiKey, onSave }) => {
   const [key, setKey] = useState(apiKey);
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [customBaseUrl, setCustomBaseUrl] = useState(baseUrl);
@@ -79,13 +80,16 @@ const SettingsView: FC<SettingsViewProps> = ({ apiKey, provider, baseUrl, model,
         <label htmlFor="fp-apikey" className="font-doodle text-sm text-gray-600">
           api key
         </label>
+        {highlightApiKey && (
+          <p className="font-doodle text-xs text-red-500">↓ Please add your API key to use Form Paglu</p>
+        )}
         <input
           id="fp-apikey"
           type="password"
           value={key}
           onChange={e => setKey(e.target.value)}
           placeholder="sk-..."
-          className="focus:border-primary w-full rounded-lg border-2 border-dashed border-gray-300 bg-white p-2 font-mono text-sm outline-none"
+          className={`focus:border-primary w-full rounded-lg border-2 border-dashed bg-white p-2 font-mono text-sm outline-none ${highlightApiKey ? 'animate-pulse border-red-400 ring-2 ring-red-200' : 'border-gray-300'}`}
         />
       </div>
 

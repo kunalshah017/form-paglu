@@ -1,17 +1,18 @@
-import { PenLine, ScanSearch, Loader2, BrainCircuit } from 'lucide-react';
+import { PenLine, ScanSearch, Loader2, Upload, Database } from 'lucide-react';
 import type { FC } from 'react';
 
 interface HomeViewProps {
   onScan: () => void;
   onFill: () => void;
+  onUpload: () => void;
   onMemoryClick: () => void;
   factCount: number;
-  loading: 'scan' | 'fill' | null;
+  loading: 'scan' | 'fill' | 'upload' | null;
   status: string;
 }
 
-const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onMemoryClick, factCount, loading, status }) => (
-  <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6">
+const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onUpload, onMemoryClick, factCount, loading, status }) => (
+  <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
     <div className="flex w-full max-w-xs flex-col gap-4">
       <button
         onClick={onFill}
@@ -28,16 +29,29 @@ const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onMemoryClick, factCount,
         {loading === 'scan' ? <Loader2 size={20} className="animate-spin" /> : <ScanSearch size={20} />}
         <span>{loading === 'scan' ? 'scanning...' : 'Scan webpage'}</span>
       </button>
+
+      <button
+        onClick={onUpload}
+        disabled={loading !== null}
+        className="border-secondary text-secondary font-doodle flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-white px-6 py-4 text-base transition-all hover:scale-[1.02] hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
+        {loading === 'upload' ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+        <span>{loading === 'upload' ? 'extracting...' : 'Upload PDF / Image'}</span>
+      </button>
     </div>
 
     {status && <p className="font-doodle text-center text-sm text-gray-600">{status}</p>}
 
-    <button
-      onClick={onMemoryClick}
-      className="font-doodle hover:text-primary flex items-center gap-2 text-xs text-gray-400 transition-colors">
-      <BrainCircuit size={14} />
-      <span>{factCount > 0 ? `${factCount} facts in memory` : 'no data scanned yet'}</span>
-    </button>
+    <div className="flex flex-col items-center gap-2">
+      <button
+        onClick={onMemoryClick}
+        className="font-doodle text-secondary flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm transition-all hover:border-blue-300 hover:bg-blue-50">
+        <Database size={14} />
+        <span>View Memories</span>
+        {factCount > 0 && <span className="bg-primary rounded-full px-2 py-0.5 text-xs text-white">{factCount}</span>}
+      </button>
+
+      {factCount === 0 && <p className="font-doodle text-xs text-gray-400">no data scanned yet</p>}
+    </div>
   </div>
 );
 

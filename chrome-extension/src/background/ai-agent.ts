@@ -383,5 +383,91 @@ const generateFillInstructions = async (
   return { instructions: allInstructions, needsMoreInteraction: hasClicks };
 };
 
-export { extractData, generateFillInstructions, splitIntoChunks, cleanContent };
+// --- File Extraction Agent (PDF/Images via Gemini multimodal) ---
+const extractFromFile = async (
+  base64: string,
+  mimeType: string,
+  apiKey: string,
+  baseUrl: string,
+  model: string,
+  existingMemory: string,
+): Promise<ExtractedFact[]> => {
+  const userContent =
+    existingMemory && existingMemory !== 'No user data stored yet.'
+      ? `EXISTING MEMORY:\n${existingMemory}\n\n---\nExtract all user data from the attached file.`
+      : 'Extract all user data from the attached file.';
+
+  // Google: use generateObject with file input
+  if (isGoogleProvider(baseUrl)) {
+    try {
+      const result = await generateObject({
+        model: getModel(apiKey, baseUrl, model),
+        schema: storeFactsSchema,
+        system: EXTRACT_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userContent },
+              { type: 'file', data: base64, mediaType: mimeType as `${string}/${string}` },
+            ],
+          },
+        ],
+        temperature: 0.1,
+      });
+      console.log(`extractFromFile (structured): extracted ${result.object.facts.length} facts`);
+      return postProcessFacts(result.object.facts);
+    } catch (err) {
+      console.error('File extraction failed:', err);
+      throw err;
+    }
+  }
+
+  // Non-Google: if the provider supports vision, try with base64 image
+  try {
+    const allFacts: ExtractedFact[] = [];
+    const result = await generateText({
+      model: getModel(apiKey, baseUrl, model),
+      system: EXTRACT_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: userContent },
+            { type: 'image', image: base64, mimeType: mimeType as `image/${string}` },
+          ],
+        },
+      ],
+      tools: {
+        store_facts: tool({
+          description: 'Store extracted user facts',
+          parameters: storeFactsSchema,
+          execute: async ({ facts }) => {
+            allFacts.push(...facts);
+            return { stored: facts.length };
+          },
+        }),
+      },
+      maxSteps: 3,
+      temperature: 0.1,
+    });
+    if (allFacts.length === 0 && result.text) {
+      try {
+        const match = result.text.match(/\{[\s\S]*"facts"[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.facts) allFacts.push(...parsed.facts);
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+    return postProcessFacts(allFacts);
+  } catch (err) {
+    console.error('File extraction (non-Google) failed:', err);
+    throw err;
+  }
+};
+
+export { extractData, extractFromFile, generateFillInstructions, splitIntoChunks, cleanContent };
 export type { ExtractedFact, FillInstruction };

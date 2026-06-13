@@ -1,5 +1,5 @@
 import 'webextension-polyfill';
-import { extractData, generateFillInstructions } from './ai-agent';
+import { extractData, extractFromFile, generateFillInstructions } from './ai-agent';
 
 // Open side panel when extension icon is clicked
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -61,6 +61,21 @@ const handleMessage = async (message: { type: string; payload?: unknown }) => {
         console.log('FILL_FORM: first instruction:', JSON.stringify(result.instructions[0]));
       }
       return { instructions: result.instructions, needsMoreInteraction: result.needsMoreInteraction };
+    }
+
+    case 'EXTRACT_FILE': {
+      const { base64, mimeType, fileName, apiKey, baseUrl, model, existingMemory } = message.payload as {
+        base64: string;
+        mimeType: string;
+        fileName: string;
+        apiKey: string;
+        baseUrl: string;
+        model: string;
+        existingMemory: string;
+      };
+      console.log('EXTRACT_FILE:', fileName, mimeType, `${Math.round(base64.length / 1024)}KB`);
+      const facts = await extractFromFile(base64, mimeType, apiKey, baseUrl, model, existingMemory || '');
+      return { facts };
     }
 
     case 'GET_PAGE_CONTENT': {

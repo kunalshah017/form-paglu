@@ -66,8 +66,9 @@ const FormPagluApp: FC = () => {
   const [baseUrl, setBaseUrl] = useState('https://generativelanguage.googleapis.com/v1beta/openai');
   const [model, setModel] = useState('gemini-3.1-flash-lite');
   const [factCount, setFactCount] = useState(0);
-  const [loading, setLoading] = useState<'scan' | 'fill' | null>(null);
+  const [loading, setLoading] = useState<'scan' | 'fill' | 'upload' | null>(null);
   const [status, setStatus] = useState('');
+  const [highlightApiKey, setHighlightApiKey] = useState(false);
 
   // Listen for scan progress from background (persists across view changes)
   useEffect(() => {
@@ -123,14 +124,24 @@ const FormPagluApp: FC = () => {
     setProvider(settings.provider);
     setBaseUrl(settings.baseUrl);
     setModel(settings.model);
+    setHighlightApiKey(false);
+  };
+
+  const requireApiKey = (): boolean => {
+    if (!apiKey) {
+      setView('settings');
+      setHighlightApiKey(true);
+      setStatus('');
+      return false;
+    }
+    return true;
   };
 
   const handleScan = async () => {
+    if (!requireApiKey()) return;
     setLoading('scan');
     setStatus('Reading page content...');
     try {
-      if (!apiKey) throw new Error('Set your API key in settings first');
-
       const contentResp = await chrome.runtime.sendMessage({ type: 'GET_PAGE_CONTENT' });
       if (contentResp.error) throw new Error(contentResp.error);
 
@@ -228,11 +239,10 @@ const FormPagluApp: FC = () => {
   };
 
   const handleFill = async () => {
+    if (!requireApiKey()) return;
     setLoading('fill');
     setStatus('Reading form fields...');
     try {
-      if (!apiKey) throw new Error('Set your API key in settings first');
-
       const userMemory = await getFactsAsText();
       if (userMemory === 'No user data stored yet.') {
         throw new Error('No data in memory. Scan a page first!');
@@ -336,6 +346,104 @@ const FormPagluApp: FC = () => {
     }
   };
 
+  const handleUpload = async () => {
+    if (!requireApiKey()) return;
+
+    // Open file picker
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,image/*,.png,.jpg,.jpeg,.webp';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      setLoading('upload');
+      setStatus(`Processing ${file.name}...`);
+
+      try {
+        // Read file as base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Strip data:...;base64, prefix
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+
+        const mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/png');
+        const existingMemory = await getFactsAsText();
+
+        const extractResp = await chrome.runtime.sendMessage({
+          type: 'EXTRACT_FILE',
+          payload: { base64, mimeType, fileName: file.name, apiKey, baseUrl, model, existingMemory },
+        });
+        if (extractResp.error) throw new Error(extractResp.error);
+
+        const { facts } = extractResp;
+        if (facts.length > 0) {
+          const database = await openMemoryDB();
+          const now = Date.now();
+
+          for (const fact of facts) {
+            try {
+              const tx = database.transaction('facts', 'readonly');
+              const store = tx.objectStore('facts');
+              const index = store.index('key');
+              const req = index.getAll(fact.key);
+
+              await new Promise<void>((resolve, reject) => {
+                req.onsuccess = () => {
+                  const existing = req.result.find((f: { category: string }) => f.category === fact.category);
+                  const writeTx = database.transaction('facts', 'readwrite');
+                  const writeStore = writeTx.objectStore('facts');
+
+                  if (existing) {
+                    writeStore.put({
+                      ...existing,
+                      value: fact.value,
+                      confidence: fact.confidence,
+                      source: `upload:${file.name}`,
+                      updatedAt: now,
+                    });
+                  } else {
+                    writeStore.add({
+                      id: crypto.randomUUID(),
+                      category: fact.category,
+                      key: fact.key,
+                      value: fact.value,
+                      confidence: fact.confidence,
+                      source: `upload:${file.name}`,
+                      extractedAt: now,
+                      updatedAt: now,
+                    });
+                  }
+                  writeTx.oncomplete = () => resolve();
+                  writeTx.onerror = () => reject(writeTx.error);
+                };
+                req.onerror = () => reject(req.error);
+              });
+            } catch (err) {
+              console.error('Failed to process uploaded fact:', fact.key, err);
+            }
+          }
+          database.close();
+        }
+        refreshFactCount();
+        setStatus(`Extracted ${facts.length} facts from ${file.name}!`);
+        setTimeout(() => setStatus(''), 4000);
+      } catch (err) {
+        setStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setTimeout(() => setStatus(''), 5000);
+      } finally {
+        setLoading(null);
+      }
+    };
+    input.click();
+  };
+
   const handleDeleteFact = async (id: string) => {
     const database = await openMemoryDB();
     const tx = database.transaction('facts', 'readwrite');
@@ -363,6 +471,7 @@ const FormPagluApp: FC = () => {
         <HomeView
           onScan={handleScan}
           onFill={handleFill}
+          onUpload={handleUpload}
           onMemoryClick={() => setView('memory')}
           factCount={factCount}
           loading={loading}
@@ -370,7 +479,14 @@ const FormPagluApp: FC = () => {
         />
       )}
       {view === 'settings' && (
-        <SettingsView apiKey={apiKey} provider={provider} baseUrl={baseUrl} model={model} onSave={handleSaveSettings} />
+        <SettingsView
+          apiKey={apiKey}
+          provider={provider}
+          baseUrl={baseUrl}
+          model={model}
+          highlightApiKey={highlightApiKey}
+          onSave={handleSaveSettings}
+        />
       )}
       {view === 'memory' && <MemoryView onDelete={handleDeleteFact} onClearAll={handleClearAllFacts} />}
     </div>
