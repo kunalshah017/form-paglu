@@ -12,8 +12,10 @@ interface HomeViewProps {
 }
 
 const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onUpload, onMemoryClick, factCount, loading, status }) => (
-  <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
-    <div className="flex w-full max-w-xs flex-col gap-4">
+  <div className="flex flex-1 flex-col items-center justify-between p-6">
+    <div />
+
+    <div className="flex w-full max-w-xs flex-col items-center gap-4">
       <button
         onClick={onFill}
         disabled={loading !== null || factCount === 0}
@@ -21,6 +23,13 @@ const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onUpload, onMemoryClick, 
         {loading === 'fill' ? <Loader2 size={20} className="animate-spin" /> : <PenLine size={20} />}
         <span>{loading === 'fill' ? 'filling...' : 'Fill out form'}</span>
       </button>
+
+      {/* Separator */}
+      <div className="flex w-full items-center gap-3">
+        <div className="h-px flex-1 border-t border-dashed border-gray-200" />
+        <span className="font-doodle text-xs text-gray-300">or add data</span>
+        <div className="h-px flex-1 border-t border-dashed border-gray-200" />
+      </div>
 
       <button
         onClick={onScan}
@@ -37,19 +46,21 @@ const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onUpload, onMemoryClick, 
         {loading === 'upload' ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
         <span>{loading === 'upload' ? 'extracting...' : 'Upload PDF / Image'}</span>
       </button>
+
+      {status && <p className="font-doodle text-center text-sm text-gray-600">{status}</p>}
     </div>
 
-    {status && <p className="font-doodle text-center text-sm text-gray-600">{status}</p>}
-
-    <div className="flex flex-col items-center gap-2">
+    {/* Bottom: View Memories */}
+    <div className="flex flex-col items-center gap-1 pb-2">
       <button
         onClick={onMemoryClick}
         className="font-doodle text-secondary flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm transition-all hover:border-blue-300 hover:bg-blue-50">
         <Database size={14} />
         <span>View Memories</span>
-        {factCount > 0 && <span className="bg-primary rounded-full px-2 py-0.5 text-xs text-white">{factCount}</span>}
+        {factCount > 0 && (
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">{factCount}</span>
+        )}
       </button>
-
       {factCount === 0 && <p className="font-doodle text-xs text-gray-400">no data scanned yet</p>}
     </div>
   </div>

@@ -18,7 +18,7 @@ const Header: FC<HeaderProps> = ({ onSettingsClick, showBack, onBackClick }) => 
         <span className="font-doodle text-sm">back</span>
       </button>
     ) : (
-      <img src={chrome.runtime.getURL('logo.png')} alt="Form Paglu" className="h-7 w-auto object-contain" />
+      <img src={chrome.runtime.getURL('logo.png')} alt="Form Paglu" className="h-9 w-auto object-contain" />
     )}
     <button
       onClick={onSettingsClick}
