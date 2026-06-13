@@ -19,6 +19,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.82",
     "@ai-sdk/openai": "^3.0.71",
     "@extension/env": "workspace:*",
     "@extension/shared": "workspace:*",

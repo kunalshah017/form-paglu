@@ -1,8 +1,10 @@
 import { EXTRACT_SYSTEM_PROMPT, FILL_SYSTEM_PROMPT, storeFactsSchema } from './prompts';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
 import type { ExtractedFact, FillInstruction } from './prompts';
+import type { LanguageModelV1 } from 'ai';
 
 // --- Content Processing ---
 const cleanContent = (raw: string): string => {
@@ -44,11 +46,18 @@ const splitIntoChunks = (content: string): string[] => {
 };
 
 // --- Provider Setup ---
-const createProvider = (apiKey: string, baseUrl: string) =>
-  createOpenAI({ apiKey, baseURL: baseUrl, compatibility: 'compatible' });
-
-// Force chat completions endpoint (NVIDIA/OpenRouter don't support /responses)
-const getModel = (apiKey: string, baseUrl: string, model: string) => createProvider(apiKey, baseUrl).chat(model);
+// Smart provider: uses native Google SDK for Google AI Studio (faster, proper tool support)
+// Uses OpenAI-compatible for NVIDIA, OpenRouter, and custom endpoints
+const getModel = (apiKey: string, baseUrl: string, model: string): LanguageModelV1 => {
+  if (baseUrl.includes('generativelanguage.googleapis.com')) {
+    // Native Google AI provider — best performance for Gemini models
+    const google = createGoogleGenerativeAI({ apiKey });
+    return google(model);
+  }
+  // OpenAI-compatible endpoint (NVIDIA, OpenRouter, custom)
+  const openai = createOpenAI({ apiKey, baseURL: baseUrl, compatibility: 'compatible' });
+  return openai.chat(model);
+};
 
 // --- Extraction Agent ---
 
