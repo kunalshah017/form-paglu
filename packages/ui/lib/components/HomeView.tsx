@@ -58,7 +58,7 @@ const HomeView: FC<HomeViewProps> = ({ onScan, onFill, onUpload, onMemoryClick, 
         <Database size={14} />
         <span>View Memories</span>
         {factCount > 0 && (
-          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">{factCount}</span>
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{factCount}</span>
         )}
       </button>
       {factCount === 0 && <p className="font-doodle text-xs text-gray-400">no data scanned yet</p>}

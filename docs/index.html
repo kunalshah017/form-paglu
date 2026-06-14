@@ -51,6 +51,42 @@
             font-family: 'Delius Swash Caps', cursive;
         }
 
+        /* Lucide icons sizing */
+        [data-lucide] {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .badge [data-lucide] {
+            width: 14px;
+            height: 14px;
+            vertical-align: -2px;
+        }
+
+        .icon-wrapper [data-lucide] {
+            width: 24px;
+            height: 24px;
+        }
+
+        .btn [data-lucide],
+        .btn svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        footer [data-lucide] {
+            width: 14px;
+            height: 14px;
+            vertical-align: -2px;
+        }
+
+        .footer-heart {
+            color: var(--danger);
+        }
+
         /* Nav */
         nav {
             position: fixed;
@@ -449,7 +485,13 @@
                 <a href="#how-it-works">How It Works</a>
                 <a href="#architecture">Architecture</a>
                 <a href="https://github.com/kunalshah017/form-paglu" class="btn btn-secondary btn-sm">
-                    <i data-lucide="github" style="width:16px;height:16px;"></i> GitHub
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+                        <path d="M9 18c-4.51 2-5-2-7-2" />
+                    </svg>
+                    GitHub
                 </a>
             </div>
         </div>
@@ -458,11 +500,11 @@
     <!-- Hero -->
     <section class="hero">
         <div class="badge">
-            <i data-lucide="brain" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            <i data-lucide="brain"></i>
             AI-Powered &bull;
-            <i data-lucide="lock" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            <i data-lucide="lock"></i>
             Private &bull;
-            <i data-lucide="heart" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            <i data-lucide="heart"></i>
             Open Source
         </div>
         <h1>Your AI memory that <span>fills forms</span> for you</h1>
@@ -471,11 +513,11 @@
         <div class="btn-group">
             <a id="download-btn" href="https://github.com/kunalshah017/form-paglu/releases/latest"
                 class="btn btn-primary">
-                <i data-lucide="download" style="width:18px;height:18px;"></i>
+                <i data-lucide="download"></i>
                 <span id="download-text">Download Extension</span>
             </a>
             <a href="https://github.com/kunalshah017/form-paglu" class="btn btn-secondary">
-                <i data-lucide="star" style="width:18px;height:18px;"></i> Star on GitHub
+                <i data-lucide="star"></i> Star on GitHub
             </a>
         </div>
         <p class="release-info" id="release-info"></p>
@@ -663,7 +705,7 @@ flowchart TD
             <p>Install Form Paglu, scan your profile once, and let AI handle the rest.</p>
             <a href="https://github.com/kunalshah017/form-paglu/releases/latest" class="btn btn-primary"
                 style="border-color: white;">Get Started
-                <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+                <i data-lucide="arrow-right"></i>
             </a>
         </div>
     </section>
@@ -671,8 +713,7 @@ flowchart TD
     <!-- Footer -->
     <footer>
         <p>Built with
-            <i data-lucide="heart"
-                style="width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--danger);"></i>
+            <i data-lucide="heart" class="footer-heart"></i>
             by <a href="https://github.com/kunalshah017">Kunal Shah</a> &bull;
             <a href="https://github.com/kunalshah017/form-paglu">Open Source</a> on GitHub
         </p>
@@ -706,7 +747,11 @@ flowchart TD
 
     <!-- Lucide Icons Init -->
     <script>
-        lucide.createIcons();
+        lucide.createIcons({
+            attrs: {
+                'stroke-width': 2
+            }
+        });
     </script>
 
     <!-- Fetch Latest Release -->
