@@ -10,7 +10,7 @@
     <meta property="og:title" content="Form Paglu - AI Form Filler">
     <meta property="og:description" content="Scan profiles. Build memory. Fill forms. Powered by AI.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://kunalshah017.github.io/form-paglu">
+    <meta property="og:url" content="https://kunalshah017.github.io/form-paglu/">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,6 +88,10 @@
             text-decoration: none;
             font-size: 14px;
             transition: color 0.2s;
+        }
+
+        nav .nav-links a.btn {
+            color: var(--secondary);
         }
 
         nav .nav-links a:hover {
@@ -307,6 +311,22 @@
         .mermaid {
             margin: 24px auto;
             max-width: 800px;
+        }
+
+        .mermaid svg {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Tech */
@@ -665,14 +685,21 @@ flowchart TD
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
         mermaid.initialize({
             startOnLoad: true,
-            theme: 'neutral',
+            theme: 'base',
             themeVariables: {
                 primaryColor: '#FEE2E2',
                 primaryTextColor: '#263D5B',
                 primaryBorderColor: '#E53E3E',
-                lineColor: '#263D5B',
+                lineColor: '#E53E3E',
                 secondaryColor: '#FEF2F2',
-                tertiaryColor: '#FAFBFC'
+                tertiaryColor: '#FFF5F5',
+                background: '#FFFFFF',
+                mainBkg: '#FEE2E2',
+                nodeBorder: '#E53E3E',
+                clusterBkg: '#FFF5F5',
+                clusterBorder: '#E53E3E',
+                edgeLabelBackground: '#FFFFFF',
+                fontFamily: 'Inter, sans-serif'
             }
         });
     </script>
