@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Paglu - AI-Powered Form Filling Chrome Extension</title>
+    <meta name="description"
+        content="Form Paglu scans your profiles, builds a dynamic memory, and auto-fills any form with AI. Bring your own API key. Free, private, open-source.">
+    <meta property="og:title" content="Form Paglu - AI Form Filler">
+    <meta property="og:description" content="Scan profiles. Build memory. Fill forms. Powered by AI.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kunalshah017.github.io/form-paglu">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Delius+Swash+Caps&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+        :root {
+            --primary: #49B6E5;
+            --secondary: #263D5B;
+            --success: #16A34A;
+            --warning: #D97706;
+            --danger: #DC2626;
+            --surface: #FFFFFF;
+            --text: #111827;
+            --muted: #6B7280;
+            --bg: #FAFBFC;
+            --border: #E5E7EB;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .font-doodle {
+            font-family: 'Delius Swash Caps', cursive;
+        }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 2px dashed var(--border);
+            z-index: 100;
+            padding: 12px 0;
+        }
+
+        nav .inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        nav .logo {
+            height: 36px;
+            width: auto;
+        }
+
+        nav .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        nav .nav-links a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        nav .nav-links a:hover {
+            color: var(--secondary);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 16px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 2px dashed;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(73, 182, 229, 0.3);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--secondary);
+            border-color: var(--secondary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 6px 16px;
+            font-size: 14px;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 130px 24px 80px;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-logo {
+            height: 56px;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: clamp(32px, 5vw, 48px);
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+
+        .hero h1 span {
+            color: var(--primary);
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+
+        .hero .btn-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .release-info {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(73, 182, 229, 0.1);
+            border: 1px dashed var(--primary);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 13px;
+            color: var(--secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Sections */
+        .section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+
+        .section-title {
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 32px;
+            color: var(--secondary);
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 48px;
+            font-size: 16px;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: white;
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(73, 182, 229, 0.1);
+        }
+
+        .feature-card .icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(73, 182, 229, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: var(--primary);
+        }
+
+        .feature-card h3 {
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 20px;
+            color: var(--secondary);
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* Steps */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 32px;
+            text-align: center;
+        }
+
+        .step .number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .step h3 {
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 18px;
+            color: var(--secondary);
+            margin-bottom: 8px;
+        }
+
+        .step p {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        /* Diagrams */
+        .diagram-section {
+            background: white;
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px 32px;
+            margin: 48px 0;
+            text-align: center;
+        }
+
+        .mermaid {
+            margin: 24px auto;
+            max-width: 800px;
+        }
+
+        /* Tech */
+        .tech-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .tech-tag {
+            background: rgba(73, 182, 229, 0.08);
+            border: 1px dashed var(--primary);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--secondary);
+            font-weight: 500;
+        }
+
+        /* Providers */
+        .providers {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+
+        .provider-card {
+            background: white;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 24px 32px;
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .provider-card h4 {
+            font-family: 'Delius Swash Caps', cursive;
+            color: var(--secondary);
+            margin-bottom: 4px;
+        }
+
+        .provider-card p {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .provider-card .free {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        /* CTA */
+        .cta {
+            background: var(--secondary);
+            border-radius: 24px;
+            padding: 64px 32px;
+            text-align: center;
+            color: white;
+            margin: 48px 0;
+        }
+
+        .cta h2 {
+            font-family: 'Delius Swash Caps', cursive;
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .cta p {
+            opacity: 0.8;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 2px dashed var(--border);
+            padding: 32px 24px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .nav-links {
+                display: none !important;
+            }
+
+            .hero {
+                padding: 110px 16px 60px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Nav -->
+    <nav>
+        <div class="inner">
+            <img src="logo.png" alt="Form Paglu" class="logo">
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#architecture">Architecture</a>
+                <a href="https://github.com/kunalshah017/form-paglu" class="btn btn-secondary btn-sm">
+                    <i data-lucide="github" style="width:16px;height:16px;"></i> GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="badge">
+            <i data-lucide="brain" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            AI-Powered &bull;
+            <i data-lucide="lock" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            Private &bull;
+            <i data-lucide="heart" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            Open Source
+        </div>
+        <h1>Your AI memory that <span>fills forms</span> for you</h1>
+        <p>Scan your LinkedIn, upload your resume, and let AI remember everything. Then auto-fill any job application
+            in seconds.</p>
+        <div class="btn-group">
+            <a id="download-btn" href="https://github.com/kunalshah017/form-paglu/releases/latest"
+                class="btn btn-primary">
+                <i data-lucide="download" style="width:18px;height:18px;"></i>
+                <span id="download-text">Download Extension</span>
+            </a>
+            <a href="https://github.com/kunalshah017/form-paglu" class="btn btn-secondary">
+                <i data-lucide="star" style="width:18px;height:18px;"></i> Star on GitHub
+            </a>
+        </div>
+        <p class="release-info" id="release-info"></p>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+        <h2 class="section-title">What Form Paglu Does</h2>
+        <p class="section-subtitle">One extension. Three superpowers.</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="scan-search"></i></div>
+                <h3>Scan Any Webpage</h3>
+                <p>Visit your LinkedIn, portfolio, or any page with your data. AI extracts 50+ facts — name, skills,
+                    work history, projects, certificates, everything.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="file-up"></i></div>
+                <h3>Upload Resume / PDF</h3>
+                <p>Upload your resume or documents. Gemini's multimodal vision reads PDFs and images directly — no OCR
+                    needed.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="pen-line"></i></div>
+                <h3>Auto-Fill Any Form</h3>
+                <p>Open a job application, click Fill. AI maps your memory to fields, clicks "Add Experience" buttons,
+                    writes personalized answers, and verifies everything.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                <h3>Dynamic Memory</h3>
+                <p>Facts stored locally in IndexedDB. Search, edit, or delete any memory. Categories: work, education,
+                    projects, skills, achievements, volunteering, and more.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="blocks"></i></div>
+                <h3>Framework-Aware</h3>
+                <p>Works with React, Vue, Angular, Svelte, MUI, Ant Design, and custom ARIA components. Uses native
+                    prototype setters to bypass controlled inputs.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-wrapper"><i data-lucide="key-round"></i></div>
+                <h3>Bring Your Own Key</h3>
+                <p>No server, no subscription. Use Google AI Studio (free), NVIDIA, OpenRouter, or any
+                    OpenAI-compatible API. Data stays on your machine.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section" id="how-it-works">
+        <h2 class="section-title">How It Works</h2>
+        <p class="section-subtitle">Three steps to never manually fill a form again.</p>
+
+        <div class="steps">
+            <div class="step">
+                <div class="number">1</div>
+                <h3>Build Memory</h3>
+                <p>Scan your LinkedIn, upload your resume, or visit any page with your info. AI extracts every detail
+                    into structured memory.</p>
+            </div>
+            <div class="step">
+                <div class="number">2</div>
+                <h3>Open a Form</h3>
+                <p>Navigate to any job application, registration form, or profile page you need to fill out.</p>
+            </div>
+            <div class="step">
+                <div class="number">3</div>
+                <h3>Click Fill</h3>
+                <p>The AI reads the form, maps your data to fields, clicks buttons to add sections, fills everything,
+                    then verifies.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="section" id="architecture">
+        <h2 class="section-title">Under the Hood</h2>
+        <p class="section-subtitle">Built with a modular agent architecture.</p>
+
+        <div class="diagram-section">
+            <pre class="mermaid">
+flowchart LR
+    subgraph Input["Data Sources"]
+        A[Webpage Scan]
+        B[PDF / Image Upload]
+    end
+
+    subgraph Agent["AI Agent - Service Worker"]
+        C[Extraction Agent]
+        D[Fill Agent]
+        E[Post-Processor]
+    end
+
+    subgraph Storage["Local Storage"]
+        F[IndexedDB Memory]
+    end
+
+    subgraph Output["Form Interaction"]
+        G[Field Detection]
+        H[Value Setting]
+        I[Button Clicking]
+    end
+
+    A --> C
+    B --> C
+    C --> E
+    E --> F
+    F --> D
+    D --> G
+    G --> H
+    G --> I
+            </pre>
+        </div>
+
+        <div class="diagram-section">
+            <h3 class="font-doodle" style="color: var(--secondary); margin-bottom: 16px;">Iterative Fill Loop</h3>
+            <pre class="mermaid">
+flowchart TD
+    A[Read Form Fields] --> B[AI Maps Memory to Fields]
+    B --> C{Clicks needed?}
+    C -->|Yes| D[Execute Clicks]
+    D --> E[Wait for DOM]
+    E --> A
+    C -->|No| F[Fill All Fields]
+    F --> G[Verification Pass]
+    G --> H{Empty fields?}
+    H -->|Yes| I[Retry Fill]
+    H -->|No| J[Done]
+    I --> J
+            </pre>
+        </div>
+    </section>
+
+    <!-- Tech Stack -->
+    <section class="section">
+        <h2 class="section-title">Tech Stack</h2>
+        <p class="section-subtitle">Modern tools for a modern extension.</p>
+
+        <div class="tech-grid">
+            <span class="tech-tag">Chrome Extension MV3</span>
+            <span class="tech-tag">React 19</span>
+            <span class="tech-tag">TypeScript</span>
+            <span class="tech-tag">Vercel AI SDK</span>
+            <span class="tech-tag">@ai-sdk/google</span>
+            <span class="tech-tag">Tailwind CSS</span>
+            <span class="tech-tag">IndexedDB</span>
+            <span class="tech-tag">Vite</span>
+            <span class="tech-tag">Turborepo</span>
+            <span class="tech-tag">pnpm Workspaces</span>
+            <span class="tech-tag">Zod Schemas</span>
+            <span class="tech-tag">generateObject</span>
+        </div>
+
+        <h3 class="section-title" style="margin-top: 64px; font-size: 24px;">Supported Providers</h3>
+        <div class="providers">
+            <div class="provider-card">
+                <h4>Google AI Studio</h4>
+                <p>Gemini 3.1 Flash Lite</p>
+                <span class="free">FREE (15 RPM)</span>
+            </div>
+            <div class="provider-card">
+                <h4>NVIDIA NIM</h4>
+                <p>Nemotron & others</p>
+                <span class="free">FREE TIER</span>
+            </div>
+            <div class="provider-card">
+                <h4>OpenRouter</h4>
+                <p>Any model</p>
+                <p style="font-size:11px; color:var(--muted);">Pay-per-use</p>
+            </div>
+            <div class="provider-card">
+                <h4>Custom</h4>
+                <p>OpenAI-compatible</p>
+                <p style="font-size:11px; color:var(--muted);">Self-hosted / local</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section">
+        <div class="cta">
+            <h2>Stop filling forms manually</h2>
+            <p>Install Form Paglu, scan your profile once, and let AI handle the rest.</p>
+            <a href="https://github.com/kunalshah017/form-paglu/releases/latest" class="btn btn-primary"
+                style="border-color: white;">Get Started
+                <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Built with
+            <i data-lucide="heart"
+                style="width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--danger);"></i>
+            by <a href="https://github.com/kunalshah017">Kunal Shah</a> &bull;
+            <a href="https://github.com/kunalshah017/form-paglu">Open Source</a> on GitHub
+        </p>
+        <p style="margin-top: 8px; font-size: 12px; opacity: 0.6;">Your data stays local. Form Paglu never sends your
+            information to any server.</p>
+    </footer>
+
+    <!-- Mermaid -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'neutral',
+            themeVariables: {
+                primaryColor: '#E8F6FC',
+                primaryTextColor: '#263D5B',
+                primaryBorderColor: '#49B6E5',
+                lineColor: '#263D5B',
+                secondaryColor: '#F0F9FF',
+                tertiaryColor: '#FAFBFC'
+            }
+        });
+    </script>
+
+    <!-- Lucide Icons Init -->
+    <script>
+        lucide.createIcons();
+    </script>
+
+    <!-- Fetch Latest Release -->
+    <script>
+        (async function () {
+            try {
+                const res = await fetch('https://api.github.com/repos/kunalshah017/form-paglu/releases/latest');
+                if (!res.ok) return;
+                const release = await res.json();
+                const version = release.tag_name;
+                const zipAsset = release.assets.find(a => a.name.endsWith('.zip'));
+                const downloadUrl = zipAsset ? zipAsset.browser_download_url : release.html_url;
+                const date = new Date(release.published_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric'
+                });
+
+                document.getElementById('download-btn').href = downloadUrl;
+                document.getElementById('download-text').textContent = `Download ${version}`;
+                document.getElementById('release-info').textContent = `Latest release: ${version} (${date})`;
+            } catch (e) {
+                // Silently fail - button defaults to releases page
+            }
+        })();
+    </script>
+
+</body>
+
+</html>
