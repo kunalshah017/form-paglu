@@ -248,7 +248,7 @@ const MemoryView: FC<MemoryViewProps> = ({ onDelete, onClearAll, onEdit }) => {
                         <div className="flex flex-shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                           <button
                             onClick={() => startEdit(fact)}
-                            className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
                             aria-label={`Edit ${fact.key}`}>
                             <Pencil size={12} />
                           </button>
