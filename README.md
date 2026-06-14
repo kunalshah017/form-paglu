@@ -2,8 +2,6 @@
   <img src="chrome-extension/public/logo.png" alt="Form Paglu" height="80">
 </p>
 
-<h1 align="center">Form Paglu</h1>
-
 <p align="center">
   <strong>AI-powered Chrome extension that scans your profiles, builds a dynamic memory, and auto-fills any form.</strong>
 </p>
